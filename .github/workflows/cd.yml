@@ -1,0 +1,83 @@
+name: CD Pipeline
+
+
+on:
+ push:
+   branches:
+     - main
+ workflow_dispatch:
+
+
+jobs:
+ deploy:
+   runs-on: ubuntu-latest
+   steps:
+     - name: Checkout repository
+       uses: actions/checkout@v4
+
+
+     - name: Install SSH key
+       uses: shimataro/ssh-key-action@v2
+       with:
+         key: ${{ secrets.SSH_PRIVATE_KEY }}
+         known_hosts: unnecessary
+         if_key_exists: replace
+
+
+     - name: Add known hosts
+       run: |
+         ssh-keyscan -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+
+     - name: Prepare environment file
+       run: |
+         cp .env.dev .env
+
+
+     - name: Copy deployment files
+       run: |
+         ssh -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p /home/${{ secrets.SERVER_USER }}/app"
+        
+         scp -P ${{ secrets.SERVER_PORT }} docker-compose.yml ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/app/
+         scp -P ${{ secrets.SERVER_PORT }} .env ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/app/
+
+
+     - name: Deploy to server
+       run: |
+         ssh -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+           cd /home/${{ secrets.SERVER_USER }}/app
+          
+           # Backup current .env if exists
+           if [ -f '.env' ]; then
+             cp .env .env.backup
+           fi
+          
+           # Pull latest images
+           docker-compose pull
+          
+           # Stop and remove existing containers
+           docker-compose down
+          
+           # Start new containers with new env
+           docker-compose up -d
+          
+           # Clean unused images
+           docker image prune -f
+          
+           # Verify deployment
+           echo 'Checking container status...'
+           docker-compose ps
+         "
+
+
+     - name: Verify deployment
+       run: |
+         ssh -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+           cd /home/${{ secrets.SERVER_USER }}/app
+          
+           if ! docker-compose ps --services --filter 'status=running' | grep -q .; then
+             echo 'Deployment verification failed - containers are not running'
+             exit 1
+           fi
+         "
+
