@@ -1,7 +1,7 @@
 """
 Module: Position Creation Tests
 
-This module contains integratin tests for the creation and management
+This module contains integration tests for the creation and management
 of user positions within the webapp
 
 Key Components:

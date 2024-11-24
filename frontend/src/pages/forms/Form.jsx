@@ -12,6 +12,9 @@ import './form.css';
 import { createPortal } from 'react-dom';
 import useLockBodyScroll from 'hooks/useLockBodyScroll';
 import CongratulationsModal from 'components/congratulationsModal/CongratulationsModal';
+import StyledPopup from 'components/openpositionpopup/StyledPopup';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 
 const Form = ({ walletId, setWalletId }) => {
   const starData = [
@@ -28,13 +31,26 @@ const Form = ({ walletId, setWalletId }) => {
   const [alertMessage, setAlertMessage] = useState('');
   const [successful, setSuccessful] = useState(false);
   useLockBodyScroll(successful);
+  const [showPopup, setShowPopup] = useState(false);
+
+  const { data: positionData, refetch: refetchPosition } = useQuery({
+    queryKey: ['hasOpenPosition', walletId],
+    queryFn: async () => {
+      if (!walletId) return { has_opened_position: false };
+      const { data } = await axios.get('/api/has-user-opened-position', {
+        params: { wallet_id: walletId },
+      });
+      return data;
+    },
+    enabled: !!walletId,
+  });
 
   const connectWalletHandler = async () => {
     try {
       setError(null);
       const address = await connectWallet();
       if (address) {
-        setWalletId(address); // Correctly set the walletId using the passed setWalletId function
+        setWalletId(address);
         console.log('Wallet successfully connected. Address:', address);
         return address;
       } else {
@@ -47,35 +63,52 @@ const Form = ({ walletId, setWalletId }) => {
     }
     return null;
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     let connectedWalletId = walletId;
+    if (!connectedWalletId) {
+      connectedWalletId = await connectWalletHandler();
+      if (!connectedWalletId) return;
+    }
+    await refetchPosition();
+    if (positionData?.has_opened_position) {
+      setShowPopup(true);
+      return;
+    }
 
     if (tokenAmount === '' || selectedToken === '' || selectedMultiplier === '') {
       setAlertMessage('Please fill the form');
-    } else {
-      setAlertMessage('');
+      return;
     }
 
-    if (!connectedWalletId) {
-      connectedWalletId = await connectWalletHandler();
-    }
+    setAlertMessage('');
 
-    if (connectedWalletId) {
-      const formData = {
-        wallet_id: connectedWalletId,
-        token_symbol: selectedToken,
-        amount: tokenAmount,
-        multiplier: selectedMultiplier,
-      };
-      await handleTransaction(connectedWalletId, formData, setError, setTokenAmount, setLoading, setSuccessful);
-    }
+    const formData = {
+      wallet_id: connectedWalletId,
+      token_symbol: selectedToken,
+      amount: tokenAmount,
+      multiplier: selectedMultiplier,
+    };
+    await handleTransaction(connectedWalletId, formData, setError, setTokenAmount, setLoading, setSuccessful);
+  };
+
+  const handleClosePopup = () => {
+    setShowPopup(false);
+  };
+
+  const handleClosePosition = () => {
+    window.location.href = '/dashboard';
   };
 
   return (
     <div className="form-container container">
       {successful && createPortal(<CongratulationsModal />, document.body)}
+      <StyledPopup
+        isOpen={showPopup}
+        onClose={handleClosePopup}
+        onClosePosition={handleClosePosition}
+        />
       {/* The rest of the UI stays largely unchanged */}
       <BalanceCards walletId={walletId} />
       <form onSubmit={handleSubmit}>
