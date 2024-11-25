@@ -8,12 +8,12 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Type, TypeVar
 
-from sqlalchemy import create_engine, update, func, cast, Numeric
+from sqlalchemy import Numeric, cast, create_engine, func, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from web_app.db.database import SQLALCHEMY_DATABASE_URL
-from web_app.db.models import AirDrop, Base, Position, Status, User, TelegramUser
+from web_app.db.models import AirDrop, Base, Position, Status, TelegramUser, User, Vault
 
 logger = logging.getLogger(__name__)
 ModelType = TypeVar("ModelType", bound=Base)
@@ -89,8 +89,7 @@ class DBConnector:
         finally:
             db.close()
 
-
-    def delete_object(self, model: Type[Base] = None, obj_id: uuid = None) -> None:
+    def delete_object_by_id(self, model: Type[Base] = None, obj_id: uuid = None) -> None:
         """
         Delete an object by its ID from the database. Rolls back if the operation fails.
         :param model: type[Base] = None
@@ -115,6 +114,24 @@ class DBConnector:
         finally:
             db.close()
 
+    def delete_object(self, object: Base) -> None:
+        """
+        Deletes an object from the database.
+        :param object: Object to delete
+        """
+        db = self.Session()
+        try:
+            db.delete(object)
+            db.commit()
+
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Error deleting object: {e}")
+
+        finally:
+            db.close()
+
+
     def create_empty_claim(self, user_id: uuid.UUID) -> AirDrop:
         """
         Creates a new empty AirDrop instance for the given user_id.
@@ -135,7 +152,7 @@ class UserDBConnector(DBConnector):
         """
         Retrieves all users with an OPENED position status from the database.
         First queries Position table for OPENED positions, then gets the associated users.
-        
+
         :return: List[User]
         """
         with self.Session() as db:
@@ -159,7 +176,7 @@ class UserDBConnector(DBConnector):
         :return: User | None
         """
         return self.get_object_by_field(User, "wallet_id", wallet_id)
-    
+
     def get_contract_address_by_wallet_id(self, wallet_id: str) -> str:
         """
         Retrieves the contract address of a user by their wallet ID.
@@ -204,12 +221,83 @@ class UserDBConnector(DBConnector):
             except SQLAlchemyError as e:
                 logger.error(f"Failed to retrieve unique users count: {str(e)}")
                 return 0
-    
+
     def delete_user_by_wallet_id(self, wallet_id: str) -> None:
         """
         Deletes a user from the database by their wallet ID.
         Rolls back the transaction if the operation fails.
-        
+
+        :param wallet_id: str
+        :return: None
+        :raises SQLAlchemyError: If the operation fails
+        """
+        with self.Session() as session:
+            try:
+                user = session.query(User).filter(User.wallet_id == wallet_id).first()
+                if user:
+                    session.delete(user)
+                    session.commit()
+                    logger.info(
+                        f"User with wallet_id {wallet_id} deleted successfully."
+                    )
+                else:
+                    logger.warning(f"No user found with wallet_id {wallet_id}.")
+            except SQLAlchemyError as e:
+                session.rollback()
+                logger.error(f"Failed to delete user with wallet_id {wallet_id}: {e}")
+                raise e
+
+    def fetch_user_history(self, user_id: int) -> List[dict]:
+        """
+        Fetches all positions for a user with the specified fields:
+        - status
+        - created_at
+        - start_price
+        - amount
+        - multiplier
+
+        ### Parameters:
+        - `user_id` (int): Unique identifier of the user.
+
+        ### Returns:
+        - A list of dictionaries containing position details.
+        """
+        with self.Session() as db:
+            try:
+                # Query positions matching the user_id
+                positions = (
+                    db.query(
+                        Position.status,
+                        Position.created_at,
+                        Position.start_price,
+                        Position.amount,
+                        Position.multiplier,
+                    )
+                    .filter(Position.user_id == user_id)
+                    .all()
+                ).scalar()
+
+                # Transform the query result into a list of dictionaries
+                return [
+                    {
+                        "status": position.status,
+                        "created_at": position.created_at,
+                        "start_price": position.start_price,
+                        "amount": position.amount,
+                        "multiplier": position.multiplier,
+                    }
+                    for position in positions
+                ]
+
+            except SQLAlchemyError as e:
+                logger.error(f"Failed to fetch user history for user_id={user_id}: {str(e)}")
+                return []
+
+    def delete_user_by_wallet_id(self, wallet_id: str) -> None:
+        """
+        Deletes a user from the database by their wallet ID.
+        Rolls back the transaction if the operation fails.
+
         :param wallet_id: str
         :return: None
         :raises SQLAlchemyError: If the operation fails
@@ -227,6 +315,7 @@ class UserDBConnector(DBConnector):
                 session.rollback()
                 logger.error(f"Failed to delete user with wallet_id {wallet_id}: {e}")
                 raise e
+
 
 class PositionDBConnector(UserDBConnector):
     """
@@ -401,7 +490,7 @@ class PositionDBConnector(UserDBConnector):
         :param position: Position
         :return: None
         """
-        self.delete_object(Position, position.id)
+        self.delete_object_by_id(Position, position.id)
 
     def close_position(self, position_id: uuid) -> Position | None:
         """
@@ -433,12 +522,12 @@ class PositionDBConnector(UserDBConnector):
             logger.error(f"Position with ID {position_id} not found")
             return None
 
-    def get_total_amounts_for_open_positions(self) -> dict[str, Decimal]: 
-        """ 
-        Calculates the amounts for all positions where status is 'OPENED', 
-        grouped by token symbol. 
-        
-        :return: Dictionary of total amounts for each token in opened positions 
+    def get_total_amounts_for_open_positions(self) -> dict[str, Decimal]:
+        """
+        Calculates the amounts for all positions where status is 'OPENED',
+        grouped by token symbol.
+
+        :return: Dictionary of total amounts for each token in opened positions
         """
         with self.Session() as db:
             try:
@@ -446,7 +535,7 @@ class PositionDBConnector(UserDBConnector):
                 token_amounts = (
                     db.query(
                         Position.token_symbol,
-                        func.sum(cast(Position.amount, Numeric)).label('total_amount')
+                        func.sum(cast(Position.amount, Numeric)).label("total_amount"),
                     )
                     .filter(Position.status == Status.OPENED.value)
                     .group_by(Position.token_symbol)
@@ -454,7 +543,7 @@ class PositionDBConnector(UserDBConnector):
                 )
                 # Convert to dictionary
                 return {token: Decimal(str(amount)) for token, amount in token_amounts}
-            
+
             except SQLAlchemyError as e:
                 logger.error(f"Error calculating amounts for open positions: {e}")
                 return {}
@@ -470,7 +559,91 @@ class PositionDBConnector(UserDBConnector):
             self.write_to_db(position)
         except SQLAlchemyError as e:
             logger.error(f"Error while saving current_price for position: {e}")
+    
+    def liquidate_position(self, position_id: int) -> bool:
+        """
+        Marks a position as liquidated by setting `is_liquidated` to True
+        and updating `datetime_liquidation` to the current timestamp.
 
+        :param position_id: ID of the position to be liquidated.
+        :return: True if the update was successful, False otherwise.
+        """
+        with self.Session() as db:
+            try:
+                # Fetch the position by ID
+                position = db.query(Position).filter(Position.id == position_id).first()
+
+                if not position:
+                    logger.warning(f"Position with ID {position_id} not found.")
+                    return False
+
+                position.is_liquidated = True
+                position.datetime_liquidation = datetime.now()
+
+                self.write_to_db(position)
+                logger.info(f"Position {position_id} successfully liquidated.")
+                return True
+
+            except SQLAlchemyError as e:
+                logger.error(f"Error liquidating position {position_id}: {str(e)}")
+                db.rollback()
+                return False
+
+    def get_all_liquidated_positions(self) -> list[dict]:
+        """
+        Retrieves all positions where `is_liquidated` is True.
+
+        :return: A list of dictionaries containing the liquidated positions.
+        """
+        with self.Session() as db:
+            try:
+                liquidated_positions = (
+                    db.query(Position)
+                    .filter(Position.is_liquidated == True)
+                    .all()
+                ).scalar()
+
+                # Convert ORM objects to dictionaries for return
+                return [
+                    {
+                        "user_id": position.user_id,
+                        "token_symbol": position.token_symbol,
+                        "amount": position.amount,
+                        "multiplier": position.multiplier,
+                        "created_at": position.created_at,
+                        "status": position.status.value,
+                        "start_price": position.start_price,
+                        "is_liquidated": position.is_liquidated,
+                        "datetime_liquidation": position.datetime_liquidation
+                    }
+                    for position in liquidated_positions
+                ]
+
+            except SQLAlchemyError as e:
+                logger.error(f"Error retrieving liquidated positions: {str(e)}")
+                return []
+
+    def get_position_by_id(self, position_id: int) -> Position | None:
+        """
+        Retrieves a position by its ID.
+        :param position_id: Position ID
+        :return: Position | None
+        """
+        return self.get_object(Position, position_id)
+
+    def delete_all_user_positions(self, user_id: uuid.UUID) -> None:
+        """
+        Deletes all positions for a user.
+        :param user_id: User ID
+        """
+        with self.Session() as db:
+            try:
+                positions = db.query(Position).filter_by(user_id=user_id).all()
+                for position in positions:
+                    db.delete(position)
+                db.commit()
+            except SQLAlchemyError as e:
+                logger.error(f"Error deleting positions for user {user_id}: {str(e)}")
 
 class AirDropDBConnector(DBConnector):
     """
@@ -509,6 +682,20 @@ class AirDropDBConnector(DBConnector):
                     f"Failed to retrieve unclaimed AirDrop instances: {str(e)}"
                 )
                 return []
+
+    def delete_all_users_airdrop(self, user_id: uuid.UUID) -> None:
+        """
+        Delete all airdrops for a user.
+        :param user_id: User ID
+        """
+        with self.Session() as db:
+            try:
+                airdrops = db.query(AirDrop).filter_by(user_id=user_id).all()
+                for airdrop in airdrops:
+                    db.delete(airdrop)
+                db.commit()
+            except SQLAlchemyError as e:
+                logger.error(f"Error deleting airdrops for user {user_id}: {str(e)}")
 
 
 class TelegramUserDBConnector(DBConnector):
@@ -581,18 +768,16 @@ class TelegramUserDBConnector(DBConnector):
         """
         user = self.get_user_by_telegram_id(telegram_id)
         if user:
-            self.delete_object(user, user.id)
+            self.delete_object_by_id(user, user.id)
 
     def set_notification_allowed(
-        self, 
-        telegram_id: str = None, 
-        wallet_id: str = None
+        self, telegram_id: str = None, wallet_id: str = None
     ) -> TelegramUser:
         """
-        Toggles or sets is_allowed_notification for a TelegramUser, 
+        Toggles or sets is_allowed_notification for a TelegramUser,
         creating a new user if none exists.
         Either telegram_id or wallet_id must be provided.
-        
+
         :param telegram_id: str, optional
         :param wallet_id: str, optional
         :return: TelegramUser
@@ -605,9 +790,9 @@ class TelegramUserDBConnector(DBConnector):
             if telegram_id:
                 user = self.get_user_by_telegram_id(telegram_id)
             if not user and wallet_id:
-                user = session.query(
-                    TelegramUser
-                ).filter_by(wallet_id=wallet_id).first()
+                user = (
+                    session.query(TelegramUser).filter_by(wallet_id=wallet_id).first()
+                )
 
             if user:
                 user.is_allowed_notification = not user.is_allowed_notification
@@ -618,25 +803,96 @@ class TelegramUserDBConnector(DBConnector):
                 user_data = {
                     "telegram_id": telegram_id,
                     "wallet_id": wallet_id,
-                    "is_allowed_notification": True
+                    "is_allowed_notification": True,
                 }
                 return self.create_telegram_user(user_data)
-            
+
     def allow_notification(self, telegram_id: int) -> bool:
         """
         Update is_allowed_notification field to True for a specific telegram user
-        
+
         Args:
             telegram_id: Telegram user ID
-            
+
         Raises:
             ValueError: If the user with the given telegram_id is not found
         """
         with self.Session() as session:
-            user = session.query(TelegramUser).filter_by(telegram_id=telegram_id).first()
+            user = (
+                session.query(TelegramUser).filter_by(telegram_id=telegram_id).first()
+            )
             if not user:
                 raise ValueError(f"User with telegram_id {telegram_id} not found")
-            
+
             user.is_allowed_notification = True
             session.commit()
             return True
+
+
+class DepositDBConnector(DBConnector):
+    """
+    Provides database connection and operations management for the Vault model.
+    """
+
+    def create_vault(self, user: User, symbol: str, amount: str) -> Vault:
+        """
+        Creates a new vault instance
+
+        :param user: A user model instance
+        :param symbol: Token symbol or address
+        :param amount: An amount in string
+
+        :return: Vault
+        """
+        vault = Vault(user_id=user.id, symbol=symbol, amount=amount)
+        self.write_to_db(vault)
+        return vault
+
+    def get_vault(self, wallet_id: str, symbol: str) -> Vault | None:
+        """
+        Gets a user vault instance for a symbol
+
+        :param wallet_id: Wallet id of user
+        :param symbol: Token symbol or address
+
+        :return: Vault or None
+        """
+        with self.Session() as db:
+            user = self.get_object_by_field(User, "wallet_id", wallet_id)
+            if not user:
+                logger.error(f"User with wallet id {wallet_id} not found")
+                return None
+            vault = db.query(Vault).filter_by(user_id=user.id, symbol=symbol).first()
+        return vault
+
+    def add_vault_balance(self, wallet_id: str, symbol: str, amount: str) -> Vault:
+        """
+        Adds balance to user vault for token symbol
+
+        :param wallet_id: Wallet id of user
+        :param symbol: Token symbol or address
+        :param amount: An amount in string
+
+        :return: Updated Vault instance
+        """
+        vault = self.get_vault(wallet_id, symbol)
+        if not vault:
+            raise ValueError("Vault not found")
+        with self.Session() as db:
+            new_amount = Decimal(vault.amount) + Decimal(amount)
+            db.query(Vault).filter_by(id=vault.id).update(amount=str(new_amount))
+            db.commit()
+            vault = self.get_vault(wallet_id, symbol)
+        return vault
+
+    def get_vault_balance(self, wallet_id: str, symbol: str) -> str | None:
+        """
+        Get the balance of a vault for a particular token symbol
+
+        :param wallet_id: The wallet id of the user
+        :param symbol: Token symbol or address
+
+        :returns: str or None
+        """
+        vault = self.get_vault(wallet_id, symbol)
+        return vault.amount if vault else None

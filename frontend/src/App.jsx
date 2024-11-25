@@ -7,13 +7,17 @@ import Footer from './components/Footer/Footer';
 import SpotnetApp from 'pages/spotnet/spotnet_app/SpotnetApp';
 import Login from 'pages/Login';
 import Form from 'pages/forms/Form';
+import { createPortal } from 'react-dom';
+import LogoutModal from './components/Logout/LogoutModal';
 import { connectWallet, logout, checkForCRMToken } from 'services/wallet';
 import { saveTelegramUser, getTelegramUserWalletId } from 'services/telegram';
+import Documentation from 'pages/spotnet/documentation/Documentation';
 
 function App() {
   const [walletId, setWalletId] = useState(localStorage.getItem('wallet_id'));
   const [tgUser, setTgUser] = useState(JSON.parse(localStorage.getItem('tg_user')));
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -70,19 +74,30 @@ function App() {
   const handleLogout = () => {
     logout();
     setWalletId(null);
+    closeModal();
     navigate('/');
   };
 
+  const handleLogoutModal = () => {
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+  }
+
   return (
     <div className="App">
+      {showModal && createPortal(<LogoutModal onClose={closeModal} onLogout={handleLogout} />, document.body)}
       <Header
         tgUser={tgUser}
         setTgUser={setTgUser}
         walletId={walletId}
         onConnectWallet={handleConnectWallet}
-        onLogout={handleLogout}
-      />
+        onLogout={handleLogoutModal}
+        />
       <main>
+      
         {error && <div className="alert alert-danger">{error}</div>}
         <Routes>
           <Route
@@ -93,8 +108,9 @@ function App() {
             path="/login"
             element={walletId ? <Navigate to="/" /> : <Login onConnectWallet={handleConnectWallet} />}
           />
-          <Route path="/dashboard" element={<Dashboard walletId={walletId} />} />
+          <Route path="/dashboard" element={<Dashboard walletId={walletId} telegramId={tgUser} />} />
           <Route path="/form" element={<Form walletId={walletId} setWalletId={setWalletId} />} />
+          <Route path="/documentation" element={<Documentation/>} />
         </Routes>
       </main>
       <Footer />

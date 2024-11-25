@@ -23,7 +23,7 @@ This method has next parameters:
 * `ekubo_limits`: EkuboSlippageLimits - Object of internal type which represents upper and lower sqrt_ratio values on Ekubo. Used to control slippage while swapping.
 * `pool_price`: felt252 - Price of `deposit` token in terms of `debt` token(so for ex. 2400000000 USDC for ETH when depositing ETH).
 
-We can trust the passed values, such as pool_price, because this function can be only called by the owner of the contract.
+We can trust the passed values, such as pool_price, because this function can only be called by the owner of the contract.
 
 Its flow can be described as follows:
 
@@ -121,7 +121,7 @@ Parameters:
 * `token`: ContractAddress - Address of the token to deposit 
 * `amount`: TokenAmount - Amount of tokens to deposit
 
-It's flow can be described as follows:
+Its flow can be described as follows:
 
 ```
 assertions (position must be open, amount must be non-zero)
@@ -137,7 +137,7 @@ deposit tokens into zkLend position
 ### Types
 #### DepositData
 The main data about the loop to perform. The `amount` * `multiplier` value is minimal amount that will be deposited after the loop.
-The `borrow_const` sets how much tokens will be borrowed from available amount(borrowing power). So if there is available 1 ETH to borrow and we passed 60%, it will borrow 0.6 ETH.
+The `borrow_const` sets how many tokens will be borrowed from available amount(borrowing power). So if there is available 1 ETH to borrow and we passed 60%, it will borrow 0.6 ETH.
 This will work up to 99% of available amount, howewer, for stability against slippage and prices difference on zkLend and our source it's better to not go higher than 98%.
 
 ```
