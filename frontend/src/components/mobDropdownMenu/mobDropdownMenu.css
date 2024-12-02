@@ -19,8 +19,8 @@
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
-    background: rgba(0, 0, 13, 0.64);
-    z-index: 9999;
+    background: var(--spinner-bgn);
+    border: 0;
     pointer-events: auto;
     top: 280px !important;
   }

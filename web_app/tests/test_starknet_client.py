@@ -2,6 +2,7 @@
 
 import pytest
 
+from decimal import Decimal
 from starknet_py.contract import Contract
 from starknet_py.net.full_node_client import FullNodeClient
 from unittest.mock import AsyncMock, patch
@@ -180,7 +181,7 @@ class TestStarknetClient:
         mock_contract.functions["get_pool_price"].call.assert_called_once()
 
         assert pool_price
-        assert isinstance(pool_price, (int, float))
+        assert isinstance(pool_price, Decimal)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

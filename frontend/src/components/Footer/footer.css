@@ -94,13 +94,14 @@
     height: 70px;
   }
 
+ 
+
   .footer-mob-nav {
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: inherit;
-    padding: 15px;
-    gap: 60px;
+    justify-content: space-between;
+    padding: 15px 25px;
     width: 100%;
   }
 
@@ -175,4 +176,8 @@
     align-items: center;
     flex-direction: column;
   }
+}
+
+.footer-link-active {
+  color: #49ABD2 !important;
 }

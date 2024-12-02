@@ -62,24 +62,6 @@ MOCK_POSITION = {"multiplier": 2, "created_at": datetime(2024, 1, 1).isoformat()
 
 MOCK_WALLET_BALANCES = {"ETH": "10.5", "USDC": "1000.0"}
 
-MOCK_ZKLEND_POSITION = {
-    "products": [
-        {
-            "token": "ETH",
-            "supplied_amount": "5.0",
-            "borrowed_amount": "0",
-            "is_collateral": True,
-        },
-        {
-            "token": "ETH",
-            "supplied_amount": "0",
-            "borrowed_amount": "500.0",
-            "is_collateral": False,
-        },
-    ]
-}
-
-
 @pytest.mark.asyncio
 async def test_get_dashboard_success():
     """Test successful retrieval of dashboard data."""

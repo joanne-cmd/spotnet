@@ -6,7 +6,7 @@ import collections
 
 from fastapi import APIRouter
 from web_app.api.serializers.dashboard import DashboardResponse
-from web_app.contract_tools.mixins.dashboard import DashboardMixin
+from web_app.contract_tools.mixins import DashboardMixin, HealthRatioMixin
 from web_app.db.crud import PositionDBConnector
 
 router = APIRouter()
@@ -40,13 +40,16 @@ async def get_dashboard(wallet_id: str) -> DashboardResponse:
     )
     opened_positions = position_db_connector.get_positions_by_wallet_id(wallet_id)
 
+    # At the moment, we only support one position per wallet
     first_opened_position = (
         opened_positions[0]
         if opened_positions
         else collections.defaultdict(lambda: None)
     )
     # Fetch zkLend position for the wallet ID
-    zklend_position = await DashboardMixin.get_zklend_position(contract_address)
+    health_ratio = await HealthRatioMixin.get_health_ratio(
+        contract_address, first_opened_position["token_symbol"]
+    )
 
     # Fetch balances (assuming you have a method for this)
     wallet_balances = await DashboardMixin.get_wallet_balances(wallet_id)
@@ -57,9 +60,9 @@ async def get_dashboard(wallet_id: str) -> DashboardResponse:
     )
     return DashboardResponse(
         balances=wallet_balances,
+        health_ratio=health_ratio,
         multipliers={"ETH": first_opened_position["multiplier"]},
         start_dates={"ETH": first_opened_position["created_at"]},
-        zklend_position=zklend_position,
         current_sum=current_sum,
         start_sum=start_sum,
     )

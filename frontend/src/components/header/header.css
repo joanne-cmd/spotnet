@@ -9,6 +9,21 @@
   background: var(--header-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid #300734;
+  z-index: 9999;
+}
+
+.header-nav-sticky {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
+  height: 90px;
+  white-space: nowrap;
+  background: var(--header-bg);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #300734;
+  z-index: 100;
 }
 
 .list-items {
