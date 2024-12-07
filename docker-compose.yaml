@@ -34,7 +34,7 @@ services:
       - app_network
 
   db:
-    image: postgres:14
+    image: postgres:16
     container_name: postgres
     restart: always
     environment:

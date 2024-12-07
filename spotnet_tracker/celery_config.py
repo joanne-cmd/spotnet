@@ -37,10 +37,10 @@ app = Celery(
 )
 
 app.conf.beat_schedule = {
-    "test-celery-and-redis": {
-        "task": "test_task",
-        "schedule": 10,
+    "check_users_health_ratio": {
+        "task": "check_users_health_ratio",
+        "schedule": 1,
     },
 }
 
-from .tasks import test_task
+from .tasks import check_users_health_ratio

@@ -9,18 +9,46 @@ from typing import Literal
 
 from aiogram.types import Update
 from aiogram.utils.web_app import check_webapp_signature
+from aiogram.utils.deep_linking import create_start_link
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from web_app.api.serializers.telegram import TelegramUserAuth, TelegramUserCreate
-from web_app.db.crud import DBConnector, TelegramUserDBConnector
+from web_app.db.crud import DBConnector, TelegramUserDBConnector, UserDBConnector
 from web_app.telegram import TELEGRAM_TOKEN, bot, dp
 from web_app.telegram.utils import build_response_writer, check_telegram_authorization
 
 # Create a FastAPI router for handling Telegram webhook requests
 router = APIRouter()
 db_connector = DBConnector()
+user_db = UserDBConnector()
 telegram_user_db_connector = TelegramUserDBConnector()
+
+
+@router.get(
+    "/api/generate-telegram-link",
+    tags=["Telegram Operations"],
+    summary="Generate a Telegram subscription link",
+)
+async def generate_telegram_link(wallet_id: str):
+    """
+    Generate a Telegram subscription link for a user by wallet ID.
+
+    Args:
+        wallet_id (str): The wallet ID of the user
+
+    Returns:
+        dict: Contains the generated subscription link
+    """
+    if not wallet_id:
+        raise HTTPException(status_code=400, detail="Wallet ID is required")
+
+    user = user_db.get_user_by_wallet_id(wallet_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    subscription_link = await create_start_link(bot, user.id, encode=True)
+    return {"subscription_link": subscription_link}
 
 
 @router.get(

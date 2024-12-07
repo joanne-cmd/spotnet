@@ -3,6 +3,7 @@ import { CallData } from 'starknet';
 import { erc20abi } from '../abis/erc20';
 import { abi } from '../abis/abi';
 import { axiosInstance } from '../utils/axios';
+import {checkAndDeployContract} from './contract';
 
 export async function sendTransaction(loopLiquidityData, contractAddress) {
   try {
@@ -21,7 +22,7 @@ export async function sendTransaction(loopLiquidityData, contractAddress) {
       entrypoint: 'approve',
       calldata: approveCalldata.compile('approve', [contractAddress, loopLiquidityData.deposit_data.amount]),
     };
-
+    console.log(loopLiquidityData)
     const callData = new CallData(abi);
     const compiled = callData.compile('loop_liquidity', loopLiquidityData);
     const depositTransaction = {
@@ -29,6 +30,7 @@ export async function sendTransaction(loopLiquidityData, contractAddress) {
       entrypoint: 'loop_liquidity',
       calldata: compiled,
     };
+    console.log(depositTransaction);
     let result = await starknet.account.execute([approveTransaction, depositTransaction]);
     console.log('Resp: ');
     console.log(result);
@@ -70,7 +72,15 @@ export const handleTransaction = async (connectedWalletId, formData, setError, s
 
   setLoading(true);
   setError('');
-
+  try{
+    await checkAndDeployContract(connectedWalletId);
+  } catch (error) {
+    console.error('Error deploying contract:', error);
+    setError('Error deploying contract. Please try again.');
+    setSuccessful(false)
+    setLoading(false);
+    return;
+  }
   try {
     const response = await axiosInstance.post(`/api/create-position`, formData);
 

@@ -14,6 +14,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
+
 from web_app.api.main import app
 from web_app.contract_tools.mixins.deposit import DepositMixin
 
@@ -41,7 +42,9 @@ async def test_open_position_success(client: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
-async def test_open_position_missing_position_data(client: AsyncClient) -> None:
+async def test_open_position_missing_position_data(
+    client: AsyncClient,
+) -> None:
     """
     Test for missing position data, which should return a 404 error.
     Args:
@@ -74,7 +77,9 @@ async def test_close_position_success(client: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
-async def test_close_position_invalid_position_id(client: AsyncClient) -> None:
+async def test_close_position_invalid_position_id(
+    client: AsyncClient,
+) -> None:
     """
     Test for attempting to close a position using an invalid position ID,
     which should return a 404 error.
@@ -113,6 +118,8 @@ async def test_close_position_invalid_position_id(client: AsyncClient) -> None:
                 },
                 "supply_price": 100,
                 "debt_price": 200,
+                "ekubo_limits": {"mock_key": "mock_value"},
+                "borrow_portion_percent": 1,
             },
         ),
         (
@@ -130,6 +137,8 @@ async def test_close_position_invalid_position_id(client: AsyncClient) -> None:
                 },
                 "supply_price": 0,
                 "debt_price": 0,
+                "ekubo_limits": {"mock_key": "mock_value"},
+                "borrow_portion_percent": 1,
             },
         ),
         (
@@ -147,6 +156,8 @@ async def test_close_position_invalid_position_id(client: AsyncClient) -> None:
                 },
                 "supply_price": 0,
                 "debt_price": 0,
+                "ekubo_limits": {"mock_key": "mock_value"},
+                "borrow_portion_percent": 1,
             },
         ),
     ],
@@ -199,7 +210,9 @@ async def test_get_repay_data_success(
 
 
 @pytest.mark.anyio
-async def test_get_repay_data_missing_wallet_id(client: AsyncClient) -> None:
+async def test_get_repay_data_missing_wallet_id(
+    client: AsyncClient,
+) -> None:
     """
     Test for missing wallet ID when attempting to retrieve repayment data,
     which should return a 404 error.
@@ -242,7 +255,6 @@ async def test_get_repay_data_missing_wallet_id(client: AsyncClient) -> None:
             {
                 "contract_address": "mock_contract_address",
                 "position_id": "123",
-                "caller": "mock_caller",
                 "pool_price": 100,
                 "pool_key": {
                     "token0": "mock_token0",
@@ -254,8 +266,10 @@ async def test_get_repay_data_missing_wallet_id(client: AsyncClient) -> None:
                 "deposit_data": {
                     "token": "mock_token",
                     "amount": "mock_amount",
-                    "multiplier": "mock_multiplier",
+                    "multiplier": 1,
+                    "borrow_portion_percent": 0,
                 },
+                "ekubo_limits": {"mock_key": "mock_value"},
             },
         ),
         (
@@ -266,7 +280,6 @@ async def test_get_repay_data_missing_wallet_id(client: AsyncClient) -> None:
             {
                 "contract_address": "mock_contract_address",
                 "position_id": "123",
-                "caller": "mock_caller",
                 "pool_price": 100,
                 "pool_key": {
                     "token0": "mock_token0",
@@ -278,8 +291,10 @@ async def test_get_repay_data_missing_wallet_id(client: AsyncClient) -> None:
                 "deposit_data": {
                     "token": "mock_token",
                     "amount": "mock_amount",
-                    "multiplier": "mock_multiplier",
+                    "multiplier": 1,
+                    "borrow_portion_percent": 0,
                 },
+                "ekubo_limits": {"mock_key": "mock_value"},
             },
         ),
         (
@@ -290,7 +305,6 @@ async def test_get_repay_data_missing_wallet_id(client: AsyncClient) -> None:
             {
                 "contract_address": "mock_contract_address",
                 "position_id": "123",
-                "caller": "mock_caller",
                 "pool_price": 100,
                 "pool_key": {
                     "token0": "mock_token0",
@@ -302,8 +316,10 @@ async def test_get_repay_data_missing_wallet_id(client: AsyncClient) -> None:
                 "deposit_data": {
                     "token": "mock_token",
                     "amount": "mock_amount",
-                    "multiplier": "mock_multiplier",
+                    "multiplier": 1,
+                    "borrow_portion_percent": 0,
                 },
+                "ekubo_limits": {"mock_key": "mock_value"},
             },
         ),
     ],
@@ -318,7 +334,6 @@ async def test_create_position_success(
     mock_position = Mock()
     mock_position.id = 123
     mock_deposit_data = {
-        "caller": "mock_caller",
         "pool_price": 100,
         "pool_key": {
             "token0": "mock_token0",
@@ -330,10 +345,12 @@ async def test_create_position_success(
         "deposit_data": {
             "token": "mock_token",
             "amount": "mock_amount",
-            "multiplier": "mock_multiplier",
+            "multiplier": "1",
+            "borrow_portion_percent": 0,
         },
         "contract_address": "mock_contract_address",
         "position_id": "123",
+        "ekubo_limits": {"mock_key": "mock_value"},
     }
 
     with (

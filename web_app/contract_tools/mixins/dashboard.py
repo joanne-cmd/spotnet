@@ -9,7 +9,7 @@ from decimal import Decimal
 from web_app.contract_tools.blockchain_call import StarknetClient
 from web_app.contract_tools.constants import TokenParams
 from web_app.contract_tools.api_request import APIRequest
-from web_app.api.serializers.dashboard import ZkLendPositionResponse
+from web_app.api.serializers.dashboard import DashboardResponse
 
 logger = logging.getLogger(__name__)
 
@@ -85,25 +85,18 @@ class DashboardMixin:
         return wallet_balances
 
     @classmethod
-    async def get_zklend_position(cls, contract_address: str) -> ZkLendPositionResponse:
+    async def get_zklend_position(
+            cls,
+            contract_address: str,
+            position: "Position"
+    ) -> DashboardResponse:
         """
         Get the zkLend position for the given wallet ID.
         :param contract_address: contract address
+        :param position: Position db model
         :return: zkLend position validated by Pydantic models
         """
-        modified_contract_address = contract_address[:2] + "0" + contract_address[2:]
-        response = await APIRequest(base_url=ARGENT_X_POSITION_URL).fetch(
-            f"decomposition/{modified_contract_address}", params={"chain": "starknet"}
-        )
-        if not response:
-            return ZkLendPositionResponse(products=[])
-
-        # Validate the response using Pydantic models
-        dapps = response.get("dapps", [])
-        products = cls._get_products(dapps)
-        zk_lend_position_response = ZkLendPositionResponse(products=products)
-
-        return zk_lend_position_response
+        pass
 
     @classmethod
     def _get_products(cls, dapps: list) -> list[dict]:
