@@ -6,8 +6,9 @@ import collections
 
 from fastapi import APIRouter
 from web_app.api.serializers.dashboard import DashboardResponse
-from web_app.contract_tools.mixins.dashboard import DashboardMixin
+from web_app.contract_tools.mixins import DashboardMixin, HealthRatioMixin
 from web_app.db.crud import PositionDBConnector
+from decimal import Decimal
 
 router = APIRouter()
 position_db_connector = PositionDBConnector()
@@ -38,28 +39,40 @@ async def get_dashboard(wallet_id: str) -> DashboardResponse:
     contract_address = position_db_connector.get_contract_address_by_wallet_id(
         wallet_id
     )
+    if not contract_address:
+        return DashboardResponse(
+            health_ratio="0",
+            multipliers={},
+            start_dates={},
+            current_sum=0,
+            start_sum=0,
+            borrowed="0",
+        )
+
     opened_positions = position_db_connector.get_positions_by_wallet_id(wallet_id)
 
+    # At the moment, we only support one position per wallet
     first_opened_position = (
         opened_positions[0]
         if opened_positions
         else collections.defaultdict(lambda: None)
     )
     # Fetch zkLend position for the wallet ID
-    zklend_position = await DashboardMixin.get_zklend_position(contract_address)
+    health_ratio, tvl = await HealthRatioMixin.get_health_ratio_and_tvl(
+        contract_address
+    )
 
-    # Fetch balances (assuming you have a method for this)
-    wallet_balances = await DashboardMixin.get_wallet_balances(wallet_id)
     current_sum = await DashboardMixin.get_current_position_sum(first_opened_position)
     start_sum = await DashboardMixin.get_start_position_sum(
         first_opened_position["start_price"],
         first_opened_position["amount"],
     )
+    token_symbol = first_opened_position["token_symbol"]
     return DashboardResponse(
-        balances=wallet_balances,
-        multipliers={"ETH": first_opened_position["multiplier"]},
-        start_dates={"ETH": first_opened_position["created_at"]},
-        zklend_position=zklend_position,
+        health_ratio=health_ratio,
+        multipliers={token_symbol: str(first_opened_position["multiplier"])},
+        start_dates={token_symbol: first_opened_position["created_at"]},
         current_sum=current_sum,
         start_sum=start_sum,
+        borrowed=str(start_sum * Decimal(tvl)),
     )

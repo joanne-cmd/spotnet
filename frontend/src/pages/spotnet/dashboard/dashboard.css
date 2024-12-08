@@ -1,11 +1,16 @@
 body {
-  font-family: 'Rethink Sans', -apple-system, Roboto, Helvetica, sans-serif;
+  font-family:
+    'Rethink Sans',
+    -apple-system,
+    Roboto,
+    Helvetica,
+    sans-serif;
 }
 
 .dashboard-wrapper {
   background: url('../../../../public/background.png') no-repeat;
   background-size: cover;
-  background-position: center 39%; 
+  background-position: center 39%;
   min-height: 100vh;
   display: flex;
   justify-content: center;
@@ -14,15 +19,14 @@ body {
   padding-top: 1rem;
 }
 
-
-.dashboard-container{
+.dashboard-container {
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 32px;
 }
 
-.main-container {
+.dashboard-content {
   width: 642px;
   gap: 24px;
   border-radius: 20px;
@@ -38,11 +42,11 @@ body {
 .dashboard-title {
   font-size: 32px;
   font-weight: 600;
-  color: #FFFFFF;
+  color: #ffffff;
   text-align: center;
 }
 
-.top-cards {
+.top-cards-dashboard {
   display: flex;
   gap: 1.8rem;
   width: 642px;
@@ -91,7 +95,7 @@ body {
   color: white;
 }
 
-.main-card {
+.dashboard-info-card {
   background: rgba(18, 7, 33, 1);
   border: 1px solid rgba(54, 41, 78, 1);
   padding: 2rem;
@@ -217,7 +221,7 @@ body {
 }
 
 .balance-label {
-  color: #9AA7B4;
+  color: #9aa7b4;
   font-size: 16px;
   font-weight: 400;
 }
@@ -233,6 +237,20 @@ body {
 
 .current-sum-white {
   color: white;
+}
+
+.lucide-up-icon {
+  color: #60af77;
+  width: 23px;
+  height: 23px;
+  margin-left: 8px;
+}
+
+.lucide-down-icon {
+  color: #f42222;
+  width: 22px;
+  height: 22px;
+  margin-left: 8px;
 }
 
 .currency-symbol {
@@ -279,7 +297,7 @@ body {
   bottom: 0;
   border-radius: 50px;
   padding: 2px;
-  background: linear-gradient(90deg, #74D6FD 0%, #E01DEE 100%);
+  background: linear-gradient(90deg, #74d6fd 0%, #e01dee 100%);
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -292,11 +310,324 @@ body {
 }
 
 .current-sum-green {
-  color: #60AF77;
+  color: #60af77;
   font-weight: 600;
 }
 
 .current-sum-red {
-  color: #F42222;
+  color: #f42222;
   font-weight: 600;
+}
+
+@media (max-width: 950px) {
+  .top-card-value {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-wrapper {
+    padding: 1rem;
+  }
+
+  .dashboard-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  .dashboard-content {
+    width: 100%;
+    max-width: 100%;
+    padding: 0.5rem;
+    gap: 16px;
+  }
+
+  .top-cards-dashboard {
+    flex-direction: row;
+    height: auto;
+    margin: 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 500px;
+  }
+
+  .card {
+    height: 90px;
+    padding: 8px 2px 14px 2px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .card-header {
+    padding: 0;
+  }
+
+  .card-header .label {
+    font-size: 14px;
+    font-weight: 400;
+  }
+
+  .icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 4px;
+    padding: 3px;
+  }
+
+  .tab-title {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .dashboard-btn {
+    border-radius: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 500px;
+    height: 55px;
+  }
+
+  .tab {
+    padding: 0.5rem 0.5rem;
+  }
+
+  .dashboard-info-card {
+    height: auto;
+    min-height: 280px;
+    border-radius: 16px !important;
+    padding: 16px 24px !important;
+    margin: 20px auto;
+    width: 500px;
+  }
+
+  .tab-content {
+    width: 100%;
+    height: auto;
+    padding: 16px;
+  }
+
+  .balance-info {
+    width: 100%;
+    height: auto;
+  }
+
+  .dashboard-title {
+    font-size: 24px;
+  }
+
+  .tab-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .currency-symbol {
+    font-size: 18px;
+  }
+
+  .currency-name {
+    font-size: 18px;
+  }
+
+  .balance-label,
+  .balance-value,
+  .current-sum-red {
+    font-size: 14px;
+  }
+
+  .top-card-value {
+    font-size: 18px;
+  }
+
+  .tabs {
+    padding: 0 8px;
+    gap: 2px;
+  }
+
+  .tab {
+    padding: 8px 12px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .tab-divider {
+    width: 2px;
+    height: 16px;
+    margin: 0 4px;
+  }
+
+  .tab-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 4px;
+  }
+
+  .tab-indicator-container {
+    bottom: -12px;
+    width: calc(100% - 16px);
+  }
+
+  .lucide-up-icon {
+    width: 22px;
+    height: 22px;
+    margin-left: 6px;
+  }
+
+  .lucide-down-icon {
+    width: 20px;
+    height: 20px;
+    margin-left: 6px;
+  }
+
+  .current-sum-green {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 550px) {
+  .dashboard-info-card {
+    height: auto;
+    min-height: 280px;
+    padding: 14px 22px !important;
+    margin: 15px auto;
+    width: 450px;
+  }
+
+  .dashboard-btn {
+    width: 450px;
+  }
+
+  .top-cards-dashboard {
+    width: 450px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-info-card {
+    height: auto;
+    min-height: 280px;
+    padding: 14px 22px !important;
+    margin: 15px auto;
+    width: 380px;
+  }
+
+  .top-card-value {
+    font-size: 16px;
+  }
+
+  .dashboard-btn {
+    width: 380px;
+    font-size: 14px;
+    height: 50px;
+  }
+
+  .top-cards-dashboard {
+    width: 380px;
+    gap: 8px;
+  }
+  .dashboard-wrapper {
+    padding: 0.75rem;
+  }
+
+  .dashboard-content {
+    gap: 20px;
+  }
+
+  .tab-title {
+    font-size: 14px;
+  }
+
+  .tab-content {
+    width: fit-content;
+    font-size: 14px;
+  }
+
+  .currency-symbol {
+    font-size: 16px;
+  }
+
+  .currency-name {
+    font-size: 16px;
+  }
+
+  .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .balance-info {
+    width: fit-content;
+  }
+
+  .card {
+    flex: 1;
+    padding: 16px 24px;
+  }
+
+  .card-header {
+    gap: 4px;
+  }
+
+  .tab {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 400px) {
+  .dashboard-info-card {
+    height: auto;
+    min-height: 280px;
+    padding: 14px 22px !important;
+    margin: 15px auto;
+    width: 300px;
+  }
+
+  .top-cards-dashboard {
+    width: 300px;
+  }
+
+  .dashboard-btn {
+    width: 300px;
+    height: 45px;
+  }
+
+  .top-card-value {
+    font-size: 14px;
+  }
+
+  .tab-title {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 320px) {
+  .dashboard-info-card {
+    height: auto;
+    padding: 10px 10px !important;
+    margin: 15px auto;
+    width: 280px;
+  }
+
+  .top-cards-dashboard {
+    width: 280px;
+  }
+
+  .dashboard-btn {
+    width: 300px;
+    height: 45px;
+  }
+
+  .card {
+    padding: 10px 16px;
+  }
+
+  .tabs {
+    padding: 0;
+  }
 }

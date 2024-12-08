@@ -53,7 +53,7 @@ const About = () => {
             <div className="card-number flex">
               <h2>{card.number}</h2>
             </div>
-            <div className="card-icon">
+            <div className="card-icon-about">
               <card.icon />
             </div>
             <div className="card-title">

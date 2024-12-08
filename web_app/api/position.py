@@ -4,7 +4,6 @@ This module handles position-related API endpoints.
 
 from fastapi import APIRouter, HTTPException
 
-from pydantic import BaseModel
 from web_app.api.serializers.transaction import (
     LoopLiquidityData,
     RepayTransactionDataResponse,
@@ -14,41 +13,13 @@ from web_app.contract_tools.constants import (
     TokenParams,
     TokenMultipliers,
 )
+from web_app.api.serializers.position import TokenMultiplierResponse
 from web_app.contract_tools.mixins.deposit import DepositMixin
 from web_app.contract_tools.mixins.dashboard import DashboardMixin
 from web_app.db.crud import PositionDBConnector
 
 router = APIRouter()  # Initialize the router
 position_db_connector = PositionDBConnector()  # Initialize the PositionDBConnector
-
-
-class TokenMultiplierResponse(BaseModel):
-    """
-    This class defines the structure of the response for the token multiplier
-    endpoint, encapsulating a dictionary where each token symbol:
-    (e.g., "ETH", "STRK")
-    is mapped to its respective multiplier value.
-
-    ### Parameters:
-    - **multipliers**: A dictionary containing token symbols as keys:
-      (e.g., "ETH", "STRK", "USDC")
-      and their respective multipliers as values.
-
-    ### Returns:
-    A structured JSON response with each token and its multiplier.
-    """
-
-    multipliers: dict[str, float]
-
-    class Config:
-        """
-        Metadata for TokenMultiplierResponse
-        with example JSON response format in **schema_extra**.
-        """
-
-        schema_extra = {
-            "example": {"multipliers": {"ETH": 5.0, "STRK": 2.5, "USDC": 5.0}}
-        }
 
 
 @router.get(
@@ -99,7 +70,6 @@ async def create_position_with_transaction_data(
         form_data.amount,
         form_data.multiplier,
     )
-
     # Get the transaction data for the deposit
     deposit_data = await DepositMixin.get_transaction_data(
         form_data.token_symbol,
@@ -112,6 +82,7 @@ async def create_position_with_transaction_data(
         position_db_connector.get_contract_address_by_wallet_id(form_data.wallet_id)
     )
     deposit_data["position_id"] = str(position.id)
+    
     return LoopLiquidityData(**deposit_data)
 
 
