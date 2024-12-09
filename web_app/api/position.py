@@ -4,7 +4,6 @@ This module handles position-related API endpoints.
 
 from fastapi import APIRouter, HTTPException
 
-from pydantic import BaseModel
 from web_app.api.serializers.transaction import (
     LoopLiquidityData,
     RepayTransactionDataResponse,
@@ -14,41 +13,13 @@ from web_app.contract_tools.constants import (
     TokenParams,
     TokenMultipliers,
 )
+from web_app.api.serializers.position import TokenMultiplierResponse
 from web_app.contract_tools.mixins.deposit import DepositMixin
 from web_app.contract_tools.mixins.dashboard import DashboardMixin
 from web_app.db.crud import PositionDBConnector
 
 router = APIRouter()  # Initialize the router
 position_db_connector = PositionDBConnector()  # Initialize the PositionDBConnector
-
-
-class TokenMultiplierResponse(BaseModel):
-    """
-    This class defines the structure of the response for the token multiplier
-    endpoint, encapsulating a dictionary where each token symbol:
-    (e.g., "ETH", "STRK")
-    is mapped to its respective multiplier value.
-
-    ### Parameters:
-    - **multipliers**: A dictionary containing token symbols as keys:
-      (e.g., "ETH", "STRK", "USDC")
-      and their respective multipliers as values.
-
-    ### Returns:
-    A structured JSON response with each token and its multiplier.
-    """
-
-    multipliers: dict[str, float]
-
-    class Config:
-        """
-        Metadata for TokenMultiplierResponse
-        with example JSON response format in **schema_extra**.
-        """
-
-        schema_extra = {
-            "example": {"multipliers": {"ETH": 5.0, "STRK": 2.5, "USDC": 5.0}}
-        }
 
 
 @router.get(
@@ -99,6 +70,9 @@ async def create_position_with_transaction_data(
         form_data.amount,
         form_data.multiplier,
     )
+    borrowing_token = TokenParams.USDC.address
+    if form_data.token_symbol == TokenParams.USDC.name:
+        borrowing_token = TokenParams.ETH.address
 
     # Get the transaction data for the deposit
     deposit_data = await DepositMixin.get_transaction_data(
@@ -106,12 +80,13 @@ async def create_position_with_transaction_data(
         form_data.amount,
         form_data.multiplier,
         form_data.wallet_id,
-        TokenParams.USDC.address,
+        borrowing_token,
     )
     deposit_data["contract_address"] = (
         position_db_connector.get_contract_address_by_wallet_id(form_data.wallet_id)
     )
     deposit_data["position_id"] = str(position.id)
+    
     return LoopLiquidityData(**deposit_data)
 
 
@@ -123,16 +98,15 @@ async def create_position_with_transaction_data(
     response_description="Returns the repay transaction data.",
 )
 async def get_repay_data(
-    supply_token: str, wallet_id: str
+    wallet_id: str
 ) -> RepayTransactionDataResponse:
     """
     Obtain data for position closing.
-    :param supply_token: Supply token address
     :param wallet_id: Wallet ID
     :return: Dict containing the repay transaction data
     :raises: HTTPException :return: Dict containing status code and detail
     """
-
+    # TODO rework it too many requests to DB
     if not wallet_id:
         raise HTTPException(status_code=404, detail="Wallet not found")
 
@@ -140,7 +114,11 @@ async def get_repay_data(
         wallet_id
     )
     position_id = position_db_connector.get_position_id_by_wallet_id(wallet_id)
-    repay_data = await DepositMixin.get_repay_data(supply_token)
+    position = position_db_connector.get_position_by_id(position_id)
+    if not position:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    repay_data = await DepositMixin.get_repay_data(position.token_symbol)
     repay_data["contract_address"] = contract_address
     repay_data["position_id"] = str(position_id)
     return repay_data

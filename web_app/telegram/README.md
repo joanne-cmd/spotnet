@@ -11,6 +11,7 @@ This document provides instructions on how to set up and run the Telegram bot, a
    ```env
    TELEGRAM_TOKEN=<your-telegram-bot-token>
    TELEGRAM_WEBAPP_URL=<your-webapp-url>
+
    REACT_APP_BOT_ID=<your-telegram-bot-id>
    ```
    Note: You can obtain the bot ID directly from your Telegram bot token in the format `bot_id:secret`.

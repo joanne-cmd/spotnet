@@ -17,6 +17,7 @@ from web_app.api.dashboard import router as dashboard_router
 from web_app.api.position import router as position_router
 from web_app.api.telegram import router as telegram_router
 from web_app.api.user import router as user_router
+from web_app.api.vault import router as vault_router
 
 # Initialize Sentry SDK if in production
 if os.getenv("ENV_VERSION") == "PROD":
@@ -59,3 +60,4 @@ app.include_router(position_router)
 app.include_router(dashboard_router)
 app.include_router(user_router)
 app.include_router(telegram_router)
+app.include_router(vault_router)

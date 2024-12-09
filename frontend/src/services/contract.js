@@ -1,5 +1,5 @@
 import { connect } from 'get-starknet';
-import { getDeployContractData } from 'src/utils/constants';
+import { getDeployContractData } from '../utils/constants';
 import { axiosInstance } from '../utils/axios';
 
 export async function deployContract(walletId) {
