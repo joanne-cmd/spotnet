@@ -35,6 +35,8 @@ pub trait IDeposit<TContractState> {
     fn extra_deposit(ref self: TContractState, token: ContractAddress, amount: TokenAmount);
 
     fn withdraw(ref self: TContractState, token: ContractAddress, amount: TokenAmount);
+
+    fn is_position_open(self: @TContractState) -> bool;
 }
 
 #[starknet::interface]
@@ -58,3 +60,10 @@ pub trait IMarket<TContractState> {
 pub trait IAirdrop<TContractState> {
     fn claim(ref self: TContractState, claim: Claim, proof: Span<felt252>) -> bool;
 }
+
+#[starknet::interface]
+pub trait IVault<TContractState> {
+    fn store_liquidity(ref self: TContractState, amount: TokenAmount);
+    fn withdraw_liquidity(ref self: TContractState, amount: TokenAmount);
+}
+

@@ -23,7 +23,7 @@ This method has next parameters:
 * `ekubo_limits`: EkuboSlippageLimits - Object of internal type which represents upper and lower sqrt_ratio values on Ekubo. Used to control slippage while swapping.
 * `pool_price`: felt252 - Price of `deposit` token in terms of `debt` token(so for ex. 2400000000 USDC for ETH when depositing ETH).
 
-We can trust the passed values, such as pool_price, because this function can be only called by the owner of the contract.
+We can trust the passed values, such as pool_price, because this function can only be called by the owner of the contract.
 
 Its flow can be described as follows:
 
@@ -100,7 +100,7 @@ assertions
 claim tokens from airdrop contract
 
 if treasury address is non-zero {
-    calculate and transfer 80% to treasury
+    calculate and transfer 50% to treasury
 }
 
 approve zkLend to spend remaining tokens
@@ -108,6 +108,8 @@ approve zkLend to spend remaining tokens
 deposit remaining tokens into zkLend
 
 enable STRK as collateral
+
+emit event
 ```
 
 The method can be called by anyone (e.g., a keeper) to claim rewards. If the treasury address is set to zero when deploying the contract, all claimed rewards will be deposited into zkLend on behalf of the user instead of being split with the treasury. This is intended behavior; sophisticated users wanting to bypass the functionality could deploy their modified contract anyway. This serves to avoid burning the STRK.
@@ -121,7 +123,7 @@ Parameters:
 * `token`: ContractAddress - Address of the token to deposit 
 * `amount`: TokenAmount - Amount of tokens to deposit
 
-It's flow can be described as follows:
+Its flow can be described as follows:
 
 ```
 assertions (position must be open, amount must be non-zero)
@@ -131,13 +133,37 @@ transfer tokens from caller to contract
 approve zkLend to spend the tokens
 
 deposit tokens into zkLend position
+
+emit event
 ```
+
+### withdraw
+
+The `withdraw` method withdraws tokens from zkLend position and transfers them to the owner.
+
+Parameters
+* `token`: TokenAddress - token address to withdraw from zkLend
+* `amount`: TokenAmount - amount to withdraw. Pass `0` to withdraw all
+
+It's flow can be described as follows:
+
+```
+assertions(transaction started by the owner)
+
+withdraw tokens from zkLend and transfer to the owner
+
+emit event
+```
+
+### is_position_open
+
+The `is_position_open` method returns the status of the position
 
 ## Important types, events and constants
 ### Types
 #### DepositData
 The main data about the loop to perform. The `amount` * `multiplier` value is minimal amount that will be deposited after the loop.
-The `borrow_const` sets how much tokens will be borrowed from available amount(borrowing power). So if there is available 1 ETH to borrow and we passed 60%, it will borrow 0.6 ETH.
+The `borrow_const` sets how many tokens will be borrowed from available amount(borrowing power). So if there is available 1 ETH to borrow and we passed 60%, it will borrow 0.6 ETH.
 This will work up to 99% of available amount, howewer, for stability against slippage and prices difference on zkLend and our source it's better to not go higher than 98%.
 
 ```
@@ -170,7 +196,29 @@ struct PositionClosed {
     repaid_amount: TokenAmount
 }
 ```
+```
+#[derive(starknet::Event, Drop)]
+struct Withdraw {
+    token: ContractAddress,
+    amount: TokenAmount
+}
+```
+```
+#[derive(starknet::Event, Drop)]
+struct ExtraDeposit {
+    token: ContractAddress,
+    amount: TokenAmount,
+    depositor: ContractAddress
+}
+```
 
+```
+#[derive(starknet::Event, Drop)]
+struct RewardClaimed {
+    treasury_amount: TokenAmount,
+    user_amount: TokenAmount
+}
+```
 ### Constants
 * ZK_SCALE_DECIMALS is used for scaling down values obtained by multiplying on zklend collateral and borrow factors.
 * STRK_ADDRESS is the same across Sepolia and Mainnet.

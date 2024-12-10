@@ -10,17 +10,23 @@ Tasks:
 
 import logging
 
+from web_app.contract_tools.mixins.alert import AlertMixin
+
 from .celery_config import app
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
-@app.task(name="test_task")
-def test_task() -> None:
+@app.task(name="check_users_health_ratio")
+def check_users_health_ratio() -> None:
     """
-    A task cybled to test that all is working as expected.
+    Background task to check health ratio levels for users with opened positions.
+
     :return: None
     """
-    # TODO: remove on production
-    logger.info("Running test_task. All is working as expected.")
+    try:
+        alert_mixin = AlertMixin()
+        alert_mixin.check_users_health_ratio_level()
+    except Exception as e:
+        logger.error(f"Error in check_users_health_ratio task: {e}")
+

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from web_app.api.serializers.transaction import UpdateUserContractRequest
-from web_app.tests.conftest import client, mock_user_db_connector
 from web_app.api.serializers.user import SubscribeToNotificationResponse
+from web_app.tests.conftest import client, mock_user_db_connector
 
 
 @pytest.mark.asyncio
@@ -196,7 +196,13 @@ async def test_get_user_contract_address(
             {"detail": "User subscribed to notifications successfully"},
             True,
         ),
-        ("123456789", "invalid_wallet_id", 404, {"detail": "User not found"}, False),
+        (
+            "123456789",
+            "invalid_wallet_id",
+            404,
+            {"detail": "User not found"},
+            False,
+        ),
         (
             None,
             "0x27994c503bd8c32525fbdaf9d398bdd4e86757988c64581b055a06c5955ea49",

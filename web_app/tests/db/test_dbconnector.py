@@ -6,8 +6,13 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
-from web_app.db.crud import DBConnector, PositionDBConnector, UserDBConnector
-from web_app.db.models import AirDrop, Base, Position, Status, User
+
+from web_app.db.crud import (
+    DBConnector,
+    PositionDBConnector,
+    UserDBConnector,
+)
+from web_app.db.models import Base, Position, Status, User
 
 
 @pytest.fixture(scope="function")
@@ -113,29 +118,7 @@ def db_connector():
 
     yield connector, test_user
 
-    connector.delete_object(User, test_user.id)
+    connector.delete_object_by_id(User, test_user.id)
 
 
-def test_create_empty_claim_positive(db_connector):
-    """
-    Test that create_empty_claim successfully creates an AirDrop
-    for an existing user.
-    """
-    connector, test_user = db_connector
-    airdrop = connector.create_empty_claim(test_user.id)
-    assert airdrop is not None
-    assert airdrop.user_id == test_user.id
-    assert not airdrop.is_claimed
-    assert airdrop.amount is None
-    assert airdrop.claimed_at is None
-    connector.delete_object(AirDrop, airdrop.id)
 
-
-def test_create_empty_claim_non_existent_user(db_connector):
-    """
-    Test that create_empty_claim raises an error when called with a non-existent user ID.
-    """
-    connector, _ = db_connector
-    fake_user_id = uuid.uuid4()
-    with pytest.raises(SQLAlchemyError):
-        connector.create_empty_claim(fake_user_id)

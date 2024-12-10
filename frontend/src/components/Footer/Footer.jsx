@@ -14,7 +14,7 @@ function Footer() {
     {
       name: 'Github',
       icon: GithubIcon,
-      href: 'https://github.com',
+      href: 'https://github.com/djeck1432/spotnet',
     },
     {
       name: 'Telegram',
@@ -24,7 +24,7 @@ function Footer() {
     {
       name: 'Twitter',
       icon: TwitterIcon,
-      href: 'https://x.com',
+      href: 'https://x.com/SpotNet_123',
     },
   ];
 
@@ -34,8 +34,30 @@ function Footer() {
         <p>Copyright© Spotnet {new Date().getFullYear()}</p>
       </div>
       <nav className="footer-docs">
-        <Link to="/documentation">Documentation</Link>
-        <Link to="/overview">Overview</Link>
+        <NavLink
+          to="/documentation"
+          className={({ isActive }) => (isActive ? 'footer-link-active' : '')}
+          onClick={(e) => {
+            if (window.location.pathname === '/documentation') {
+              e.preventDefault();
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          Documentation
+        </NavLink>
+        <NavLink
+          to="/overview"
+          className={({ isActive }) => (isActive ? 'footer-link-active' : '')}
+          onClick={(e) => {
+            if (window.location.pathname === '/overview') {
+              e.preventDefault();
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          Overview
+        </NavLink>
         <Link to="/terms">Terms & Conditions</Link>
         <Link to="/defi">Defi Spring Rewards</Link>
       </nav>
@@ -53,7 +75,7 @@ function Footer() {
         >
           <div className="link-wrapper">
             <DashboardIcon className="footer-icon" />
-            <span>Dashboard</span>
+            <span className="footer-links">Dashboard</span>
           </div>
         </NavLink>
         <div className="footer-mob-divider"></div>
@@ -63,10 +85,20 @@ function Footer() {
         >
           <div className="link-wrapper">
             <FormIcon className="footer-icon" />
-            <span>Form</span>
+            <span className="footer-links">Form</span>
           </div>
         </NavLink>
-        <div className="footer-line"></div>
+        {/* <div className="footer-mob-divider"></div> */}
+        {/* <NavLink
+          to="/stake"
+          className={({ isActive }) => (isActive ? 'active-link footer-link-form' : 'footer-link-form')}
+        >
+          <div className="link-wrapper">
+            <FormIcon className="footer-icon" />
+            <span>Vault</span>
+          </div>
+        </NavLink> */}
+        {/* <div className="footer-line"></div> */}
       </div>
     </footer>
   );
