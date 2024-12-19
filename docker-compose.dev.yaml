@@ -7,23 +7,27 @@ networks:
 services:
   backend:
     build: .
+    command: ["/app/entrypoint.sh"]
     container_name: backend_dev
     volumes:
       - ./entrypoint.sh:/app/entrypoint.sh
-      - .:/app # Mount the entire project for easy code updates
     env_file:
-      - .env.dev # Use a different environment file for local development
-    expose:
-      - "8000"
+      - .env.dev
     ports:
-      - "8000:8000" # Expose backend to localhost
+      - "8000:8000"
     networks:
       - app_network
     depends_on:
       - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=spotnet
+      - DB_USER=postgres
+      - DB_PASSWORD=password
 
   db:
-    image: postgres:14
+    image: postgres:16
     container_name: postgres_dev
     environment:
       POSTGRES_DB: spotnet
@@ -31,13 +35,13 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
-      - ./init-db:/docker-entrypoint-initdb.d # Automatically run initialization scripts
+      - ./init-db:/docker-entrypoint-initdb.d
     networks:
       - app_network
     ports:
       - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,9 +52,9 @@ services:
       dockerfile: Dockerfile.dev
     container_name: frontend_dev
     volumes:
-      - ./frontend:/app # For live code updates during development
+      - ./frontend:/app
     ports:
-      - "3000:80" # Serve the frontend on localhost:3000
+      - "3000:80"
     networks:
       - app_network
     depends_on:

@@ -21,6 +21,8 @@ services:
       - app_network
   backend:
     build: .
+    command:
+      - bash /app/entrypoint.sh
     restart: always
     volumes:
       - ./entrypoint.sh:/app/entrypoint.sh
@@ -34,7 +36,7 @@ services:
       - app_network
 
   db:
-    image: postgres:14
+    image: postgres:16
     container_name: postgres
     restart: always
     environment:

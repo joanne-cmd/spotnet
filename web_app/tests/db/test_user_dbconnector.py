@@ -2,10 +2,14 @@
 Unit tests for the UserDBConnector module.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
-from web_app.db.models import User
+
+import pytest
+from sqlalchemy.exc import SQLAlchemyError
+
 from web_app.db.crud import UserDBConnector
+from web_app.db.models import User
+
 
 @pytest.fixture
 def mock_db_connector():
@@ -14,16 +18,20 @@ def mock_db_connector():
     """
     return MagicMock()
 
+
 @pytest.fixture
 def user_db(mock_db_connector):
     """
     Fixture to create a UserDBConnector instance with mocked dependencies.
     """
-    with patch('web_app.db.crud.UserDBConnector.get_object_by_field',
-               new_callable=MagicMock) as mock_get:
+    with patch(
+        "web_app.db.crud.UserDBConnector.get_object_by_field",
+        new_callable=MagicMock,
+    ) as mock_get:
         mock_get.side_effect = mock_db_connector.get_object_by_field
         connector = UserDBConnector()
         yield connector
+
 
 def test_get_user_by_wallet_id_success(user_db, mock_db_connector):
     """
@@ -41,10 +49,9 @@ def test_get_user_by_wallet_id_success(user_db, mock_db_connector):
 
     assert result == expected_user
     mock_db_connector.get_object_by_field.assert_called_once_with(
-        User,
-        "wallet_id",
-        wallet_id
+        User, "wallet_id", wallet_id
     )
+
 
 def test_get_user_by_wallet_id_not_found(user_db, mock_db_connector):
     """
@@ -57,10 +64,9 @@ def test_get_user_by_wallet_id_not_found(user_db, mock_db_connector):
 
     assert result is None
     mock_db_connector.get_object_by_field.assert_called_once_with(
-        User,
-        "wallet_id",
-        wallet_id
+        User, "wallet_id", wallet_id
     )
+
 
 def test_get_user_by_wallet_id_empty_wallet_id(user_db, mock_db_connector):
     """
@@ -73,9 +79,7 @@ def test_get_user_by_wallet_id_empty_wallet_id(user_db, mock_db_connector):
 
     assert result is None
     mock_db_connector.get_object_by_field.assert_called_once_with(
-        User,
-        "wallet_id",
-        wallet_id
+        User, "wallet_id", wallet_id
     )
 
 

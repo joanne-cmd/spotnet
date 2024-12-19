@@ -2,7 +2,7 @@
 This module contains constants for the contract tools.
 """
 
-import os
+from decimal import Decimal
 from dataclasses import dataclass
 from enum import Enum
 from typing import Iterator
@@ -11,9 +11,10 @@ EKUBO_MAINNET_ADDRESS: str = (
     "0x00000005dd3d2f4429af886cd1a3b08289dbcea99a294197e9eb43b0e0325b4b"  # mainnet address
 )
 
-SPOTNET_CORE_ADDRESS: str = (
-    "0x0798b587e3da417796a56ffab835ab2a905fa08bab136843ce5749f76c7e45e4"  # mainnet current address
+ZKLEND_MARKET_ADDRESS: str = (
+    "0x04c0a5193d58f74fbace4b74dcf65481e734ed1714121bdc571da345540efa05"
 )
+MULTIPLIER_POWER = 99
 
 
 @dataclass(frozen=True)
@@ -23,8 +24,10 @@ class TokenConfig:
     """
 
     address: str
-    decimals: int
     name: str
+    decimals: Decimal
+    collateral_factor: Decimal = Decimal("0.0")
+    borrow_factor: Decimal = Decimal("0.0")
 
 
 @dataclass(frozen=True)
@@ -33,8 +36,8 @@ class TokenMultipliers:
     Class to hold the predefined multipliers for supported tokens/
     """
 
-    ETH: float = 5.0
-    STRK: float = 2.5
+    ETH: float = 4.6
+    STRK: float = 1.9
     USDC: float = 5.0
 
 
@@ -46,17 +49,23 @@ class TokenParams:
     ETH = TokenConfig(
         name="ETH",
         address="0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-        decimals=18,
+        decimals=Decimal("18"),
+        collateral_factor=Decimal("0.80"),
+        borrow_factor=Decimal("1"),
     )
     STRK = TokenConfig(
         name="STRK",
         address="0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
-        decimals=18,
+        decimals=Decimal("18"),
+        collateral_factor=Decimal("0.50"),
+        borrow_factor=Decimal("1"),
     )
     USDC = TokenConfig(
         name="USDC",
         address="0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
-        decimals=6,
+        decimals=Decimal("6"),
+        collateral_factor=Decimal("0.80"),
+        borrow_factor=Decimal("1"),
     )
 
     @classmethod
@@ -77,6 +86,18 @@ class TokenParams:
             if token.name == token_name:
                 return token.address
         raise ValueError(f"Token {token_name} not found")
+
+    @classmethod
+    def get_borrow_factor(cls, token_identifier):
+        """
+        Get the borrow factor for a given token.
+        :param token_identifier: Token identifier: symbol or address
+        :return: Token borrow factor
+        """
+        for token in cls.tokens():
+            if token.address == token_identifier or token.name == token_identifier:
+                return token.borrow_factor
+        raise ValueError(f"Token {token_identifier} not found")
 
     @classmethod
     def get_token_decimals(cls, token_address: str) -> int:
@@ -101,6 +122,18 @@ class TokenParams:
             if token.address == token_address:
                 return token.name
         raise ValueError(f"Token with address {token_address} not found")
+
+    @classmethod
+    def get_token_collateral_factor(cls, token_identifier: str) -> Decimal:
+        """
+        Get the collateral factor for a given token.
+        :param token_identifier: Token identifier: symbol or address
+        :return: Token collateral factor
+        """
+        for token in cls.tokens():
+            if token.address == token_identifier or token.name == token_identifier:
+                return token.collateral_factor
+        raise ValueError(f"Token {token_identifier} not found")
 
     @staticmethod
     def convert_int_to_str(token_address: int) -> str:
