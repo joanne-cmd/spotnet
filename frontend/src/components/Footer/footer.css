@@ -6,6 +6,7 @@
   align-items: center;
   justify-content: space-between;
   position: relative;
+  z-index: 15;
 }
 
 .footer-text p {
@@ -28,6 +29,10 @@
   color: var(--secondary);
   margin-right: 15px;
   transition: transform 0.3s ease;
+}
+
+.footer-docs > a:last-child {
+  margin-right: 0;
 }
 
 .footer-docs a:hover {
@@ -175,4 +180,19 @@
     align-items: center;
     flex-direction: column;
   }
+
+  .link-wrapper span {
+    width: 80px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer-mob-nav {
+    gap: 40px;
+  }
+}
+
+.footer-link-active {
+  color: #49abd2 !important;
 }

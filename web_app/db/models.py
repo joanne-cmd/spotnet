@@ -5,20 +5,23 @@ table in the database and defines the structure and relationships
 between the data entities.
 """
 
+from enum import Enum as PyEnum
 from uuid import uuid4
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
+
 from sqlalchemy import (
     DECIMAL,
-    Column,
-    String,
     Boolean,
-    Integer,
-    ForeignKey,
+    Column,
     DateTime,
     Enum,
+    ForeignKey,
+    NUMERIC,
+    String,
+    Float,
 )
-from enum import Enum as PyEnum
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
+
 from web_app.db.database import Base
 
 
@@ -65,7 +68,7 @@ class Position(Base):
     )
     token_symbol = Column(String, nullable=False)
     amount = Column(String, nullable=False)
-    multiplier = Column(Integer, nullable=False)
+    multiplier = Column(NUMERIC, nullable=False)
     created_at = Column(DateTime, nullable=False, default=func.now())
     status = Column(
         Enum(
@@ -75,6 +78,10 @@ class Position(Base):
         default="pending",
     )
     start_price = Column(DECIMAL, nullable=False)
+    is_protection = Column(Boolean, default=False)
+    liquidation_bonus = Column(Float, default=0.0)
+    is_liquidated = Column(Boolean, default=False)
+    datetime_liquidation = Column(DateTime, nullable=True)
 
 
 class AirDrop(Base):
@@ -113,4 +120,69 @@ class TelegramUser(Base):
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(
         DateTime, nullable=False, default=func.now(), onupdate=func.now()
+    )
+
+
+class Vault(Base):
+    """
+    SQLAlchemy model for the vault table.
+    """
+
+    __tablename__ = "vault"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("user.id"), index=True, nullable=False
+    )
+    symbol = Column(String)
+    amount = Column(String)
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(
+        DateTime, nullable=False, default=func.now(), onupdate=func.now()
+    )
+
+class TransactionStatus(PyEnum):
+    """
+    Enum for the transaction status.
+    """
+    OPENED = "opened"
+    CLOSED = "closed"
+
+    @classmethod
+    def choices(cls):
+        """
+        Returns the list of transaction status choices.
+        """
+        return [status.value for status in cls]
+
+class Transaction(Base):
+    """
+    SQLAlchemy model for the transaction table.
+    Stores transaction information related to positions.
+    """
+    __tablename__ = "transaction"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    position_id = Column(
+        UUID(as_uuid=True), 
+        ForeignKey("position.id"), 
+        index=True, 
+        nullable=False
+    )
+    status = Column(
+        Enum(
+            TransactionStatus, 
+            name="transaction_status_enum", 
+            values_callable=lambda x: [e.value for e in x]
+        ),
+        nullable=False,
+        default="opened",
+    )
+    transaction_hash = Column(String, nullable=False, unique=True, index=True)
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(
+        DateTime, 
+        nullable=False, 
+        default=func.now(), 
+        onupdate=func.now()
     )

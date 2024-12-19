@@ -1,10 +1,11 @@
 """
 Seed data for initializing the database with predefined values.
 """
+
 import logging
 from decimal import Decimal
 from faker import Faker
-from web_app.db.models import Status, User, Position, AirDrop, TelegramUser
+from web_app.db.models import Status, User, Position, AirDrop, TelegramUser, Vault
 from web_app.db.database import SessionLocal
 from web_app.contract_tools.constants import TokenParams
 
@@ -25,8 +26,10 @@ def create_users(session: SessionLocal) -> list[User]:
     """
     users = []
     for _ in range(10):
+        wallet_id = fake.unique.uuid4()
+        print('wallet_id:', wallet_id)
         user = User(
-            wallet_id=fake.unique.uuid4(),
+            wallet_id=wallet_id,
             contract_address=fake.address(),
             is_contract_deployed=fake.boolean(),
         )
@@ -48,7 +51,7 @@ def create_positions(session: SessionLocal, users: list[User]) -> None:
         for _ in range(2):
             position = Position(
                 user_id=user.id,
-                token_symbol=fake.random_choices(
+                token_symbol=fake.random_element(
                     elements=[token.name for token in TokenParams.tokens()]
                 ),
                 amount=fake.random_number(digits=5),
@@ -59,6 +62,10 @@ def create_positions(session: SessionLocal, users: list[User]) -> None:
                 status=fake.random_element(
                     elements=[status.value for status in Status]
                 ),
+                is_protection=fake.boolean(),
+                liquidation_bonus=fake.pyfloat(min_value=0.0, max_value=1.0),
+                is_liquidated=fake.boolean(),
+                datetime_liquidation=fake.date_time_this_decade(),
             )
             positions.append(position)
     if positions:
@@ -109,11 +116,41 @@ def create_telegram_users(session: SessionLocal, users: list[User]) -> None:
                 last_name=fake.last_name(),
                 wallet_id=user.wallet_id,
                 photo_url=fake.image_url(),
+                is_allowed_notification=fake.boolean(),
             )
             telegram_users.append(telegram_user)
     session.bulk_save_objects(telegram_users)
     session.commit()
     logger.info(f"Created {len(telegram_users)} Telegram users.")
+
+
+def create_vaults(session: SessionLocal, users: list[User]) -> None:
+    """
+    Create and save fake vault records for each user.
+    Args:
+        session (Session): SQLAlchemy session object.
+        users (list): List of User objects to associate with vaults.
+    """
+    vaults = []
+    for user in users:
+        for _ in range(2):
+            vault = Vault(
+                user_id=user.id,
+                symbol=fake.random_choices(
+                    elements=[token.name for token in TokenParams.tokens()]
+                ),
+                amount=str(
+                    fake.random_number(digits=5)
+                ),  # Amount stored as string in model
+            )
+            vaults.append(vault)
+
+    if vaults:
+        session.bulk_save_objects(vaults)
+        session.commit()
+        logger.info(f"Created {len(vaults)} vaults for {len(users)} users.")
+    else:
+        logger.info("No vaults created.")
 
 
 if __name__ == "__main__":
@@ -122,7 +159,8 @@ if __name__ == "__main__":
         # Populate the database
         users = create_users(session)
         create_positions(session, users)
-        create_airdrops(session, users)
-        create_telegram_users(session, users)
+        # create_airdrops(session, users)
+        # create_telegram_users(session, users)
+        create_vaults(session, users)
 
     logger.info("Database populated with fake data.")

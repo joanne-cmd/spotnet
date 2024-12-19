@@ -1,7 +1,7 @@
 """
 This module defines the serializers for the transaction data.
 """
-
+from decimal import Decimal
 from pydantic import BaseModel, field_validator
 
 
@@ -40,7 +40,8 @@ class DepositData(BaseModel):
 
     token: str
     amount: str
-    multiplier: str
+    multiplier: Decimal
+    borrow_portion_percent: int
 
     @field_validator("token", "amount", "multiplier", mode="before")
     def convert_int_to_str(cls, value: int) -> str:
@@ -57,21 +58,12 @@ class LoopLiquidityData(BaseModel):
     Pydantic model for the loop liquidity data.
     """
 
-    caller: str
     pool_price: int  # Assuming this should remain an integer
     pool_key: PoolKey
     deposit_data: DepositData
     contract_address: str
+    ekubo_limits: dict[str, str]
     position_id: str
-
-    @field_validator("caller", mode="before")
-    def convert_caller_to_str(cls, value: int) -> str:
-        """
-        Convert the caller address to a string.
-        :param value: Caller address as an integer
-        :return: str
-        """
-        return str(value)
 
 
 class RepayTransactionDataResponse(BaseModel):
@@ -82,11 +74,21 @@ class RepayTransactionDataResponse(BaseModel):
     supply_token: str
     debt_token: str
     pool_key: PoolKey
-    supply_price: int
-    debt_price: int
+    supply_price: str
+    debt_price: str
     contract_address: str
+    ekubo_limits: dict[str, str]
+    borrow_portion_percent: int
     position_id: str
 
+    @field_validator("supply_price", "debt_price", mode="before")
+    def convert_int_to_str(cls, value: int) -> str:
+        """
+        Convert the integer values to strings.
+        :param value: The integer value to convert
+        :return: str
+        """
+        return str(value)
 
 class UpdateUserContractRequest(BaseModel):
     """
@@ -95,19 +97,3 @@ class UpdateUserContractRequest(BaseModel):
 
     wallet_id: str
     contract_address: str
-
-
-class DeploymentStatus(BaseModel):
-    """
-    Pydantic model for the deployment status.
-    """
-
-    is_contract_deployed: bool
-
-
-class ContractAddress(BaseModel):
-    """
-    Pydantic model for the contract address.
-    """
-
-    contract_address: str | None

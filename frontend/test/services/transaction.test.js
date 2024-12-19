@@ -132,15 +132,13 @@ describe('Transaction Functions', () => {
     });
   });
 
-  describe('handleTransaction', () => {
-    const mockSetError = jest.fn();
+  describe('handleTransaction', () => {    
     const mockSetTokenAmount = jest.fn();
     const mockSetLoading = jest.fn();
     const mockSetSuccessful = jest.fn();
     const mockFormData = { position_id: 1 };
 
-    beforeEach(() => {
-      mockSetError.mockClear();
+    beforeEach(() => {      
       mockSetTokenAmount.mockClear();
       mockSetLoading.mockClear();
       mockSetSuccessful.mockClear();
@@ -162,7 +160,7 @@ describe('Transaction Functions', () => {
         data: { status: 'open' },
       });
 
-      await handleTransaction(mockWalletId, mockFormData, mockSetError, mockSetTokenAmount, mockSetLoading, mockSetSuccessful);
+      await handleTransaction(mockWalletId, mockFormData, mockSetTokenAmount, mockSetLoading, mockSetSuccessful);
 
       expect(mockSetLoading).toHaveBeenCalledWith(true);
       expect(axiosInstance.post).toHaveBeenCalledWith('/api/create-position', mockFormData);
@@ -170,8 +168,7 @@ describe('Transaction Functions', () => {
         params: { position_id: mockTransactionData.position_id },
       });
       expect(mockSetTokenAmount).toHaveBeenCalledWith('');
-      expect(mockSetLoading).toHaveBeenCalledWith(false);
-      expect(mockSetError).toHaveBeenCalledWith('');
+      expect(mockSetLoading).toHaveBeenCalledWith(false);      
     });
 
     it('should handle create position error', async () => {
@@ -180,9 +177,8 @@ describe('Transaction Functions', () => {
 
       console.error = jest.fn();
 
-      await handleTransaction(mockWalletId, mockFormData, mockSetError, mockSetTokenAmount, mockSetLoading, mockSetSuccessful);
-
-      expect(mockSetError).toHaveBeenCalledWith('Failed to create position. Please try again.');
+      await handleTransaction(mockWalletId, mockFormData, mockSetTokenAmount, mockSetLoading, mockSetSuccessful);
+      
       expect(console.error).toHaveBeenCalledWith('Failed to create position:', mockError);
       expect(mockSetLoading).toHaveBeenCalledWith(false);
       expect(mockSetSuccessful).toHaveBeenCalledWith(false);

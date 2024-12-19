@@ -5,18 +5,21 @@ import StarMaker from '../../../components/StarMaker';
 import { ReactComponent as Decoration } from 'assets/particles/deco.svg';
 import { ReactComponent as Starknet } from 'assets/particles/starknet.svg';
 import { ReactComponent as Rocket } from 'assets/icons/rocket.svg';
-import { Notifier } from 'components/Notifier/Notifier';
-import { notifyWarning } from 'utils/notification';
 import './home.css';
+import { useWalletStore } from 'stores/useWalletStore';
+import { notify } from 'components/Notifier/Notifier';
 
-function Home({ walletId }) {
+
+function Home() {
+      const { walletId } = useWalletStore();
+
   const navigate = useNavigate();
 
   const handleLaunchApp = async () => {
     if (walletId) {
       navigate('/form');
     } else {
-      notifyWarning('Please connect to your wallet');
+      notify('Please connect to your wallet', "warning");
     }
   };
 
@@ -98,7 +101,6 @@ function Home({ walletId }) {
             <Rocket className="rocket-icon" />
           </div>
         </button>
-        <Notifier />
         <div className="bottom-gradient"></div>
       </div>
     </div>
