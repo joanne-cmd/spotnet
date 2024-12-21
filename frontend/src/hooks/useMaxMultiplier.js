@@ -1,20 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import { ONE_HOUR_IN_MILLISECONDS } from '../utils/constants';
-
-const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://0.0.0.0:8000';
+import { axiosInstance } from '../utils/axios';
+import { notify } from '../components/layout/notifier/Notifier';
 
 export const useMaxMultiplier = () => {
-  const { data, isPending, error } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ['max-multiplier'],
     queryFn: async () => {
-      const response = await axios.get(`${backendUrl}/api/get-multipliers`);
+      const response = await axiosInstance.get(`/api/get-multipliers`);
       return response.data.multipliers;
     },
-    staleTime: ONE_HOUR_IN_MILLISECONDS, 
+    staleTime: ONE_HOUR_IN_MILLISECONDS,
     refetchInterval: ONE_HOUR_IN_MILLISECONDS,
+    onError: (error) => notify(`Error using multiplier: ${error.message}`, 'error')
   });
 
-  return { data, isLoading: isPending, error };
+  return { data, isLoading: isPending };
 };
-

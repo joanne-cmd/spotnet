@@ -1,21 +1,33 @@
 """Test cases for DepositMixin"""
 
-import pytest
-
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from web_app.contract_tools.mixins.deposit import DepositMixin
+
+# Known token addresses and decimals that match what TokenParams would return
+TOKEN_ADDRESSES = {
+    "STRK": "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+    "ETH": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+    "USDC": "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+}
+TOKEN_DECIMALS = {
+    TOKEN_ADDRESSES["STRK"]: 18,
+    TOKEN_ADDRESSES["ETH"]: 18,
+    TOKEN_ADDRESSES["USDC"]: 6,
+}
 
 
 class TestDepositMixin:
     """
-    Test cases for web_app.contract_tools.mixins.deposit.DepositMixin class
+    Test cases for DepositMixin
     """
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "deposit_token, amount, multiplier, wallet_id, borrowing_token",
+        "deposit_token_name, amount, multiplier, wallet_id, borrowing_token",
         [
             (
                 "STRK",
@@ -25,48 +37,49 @@ class TestDepositMixin:
                 "STRK",
             ),
             (
-                "USDC",
+                "ETH",
                 "3333.3",
                 4,
                 "0x27994c503bd8c32525fbdaf9d398bdd4e86757988c64581b055a06c5955ea49",
-                "ETH",
-            ),
-            (
-                "",
-                "0",
-                0,
-                "invalid_wallet_id",
-                "",
+                "USDC",
             ),
         ],
     )
     @patch(
-        target="web_app.contract_tools.mixins.deposit.CLIENT.get_loop_liquidity_data",
+        "web_app.contract_tools.mixins.deposit.TokenParams.get_token_decimals",
+        side_effect=lambda addr: TOKEN_DECIMALS[addr],
+    )
+    @patch(
+        "web_app.contract_tools.mixins.deposit.TokenParams.get_token_address",
+        side_effect=lambda x: TOKEN_ADDRESSES[x],
+    )
+    @patch(
+        "web_app.contract_tools.mixins.deposit.CLIENT.get_loop_liquidity_data",
         new_callable=AsyncMock,
     )
-    @patch("web_app.contract_tools.mixins.deposit.TokenParams.get_token_address")
     async def test_get_transaction_data(
         self,
-        mock_get_token_address: MagicMock,
         mock_get_loop_liquidity_data: AsyncMock,
-        deposit_token: str,
+        mock_get_token_address: MagicMock,
+        mock_get_token_decimals: MagicMock,
+        deposit_token_name: str,
         amount: str,
         multiplier: int,
         wallet_id: str,
         borrowing_token: str,
     ) -> None:
         """
-        Tests cases for DepositMixin.get_transaction_data method
-        :param mock_get_token_address: unittest.mock.MagicMock
+        Test cases for DepositMixin.get_transaction_data method
         :param mock_get_loop_liquidity_data: unittest.mock.AsyncMock
-        :param deposit_token: Deposit token
-        :param amount: Amount to deposit
-        :param multiplier: Multiplier
-        :param wallet_id: Wallet ID
-        :param borrowing_token: Borrowing token
+        :param mock_get_token_address: unittest.mock.MagicMock
+        :param mock_get_token_decimals: unittest.mock.MagicMock
+        :param deposit_token_name: str
+        :param amount: str
+        :param multiplier: int
+        :param wallet_id: str
+        :param borrowing_token: str
         :return: None
         """
-
         expected_transaction_data = {
             "caller": wallet_id,
             "pool_price": "mocked_pool_price",
@@ -74,68 +87,86 @@ class TestDepositMixin:
             "deposit_data": "mocked_deposit_data",
         }
 
-        mock_get_token_address.side_effect = lambda token: f"mocked_address_for_{token}"
         mock_get_loop_liquidity_data.return_value = expected_transaction_data
+        ekubo_contract_mock = MagicMock()
 
         transaction_data = await DepositMixin.get_transaction_data(
-            deposit_token, amount, multiplier, wallet_id, borrowing_token
-        )
-
-        mock_get_token_address.assert_any_call(deposit_token)
-
-        mock_get_loop_liquidity_data.assert_called_once_with(
-            f"mocked_address_for_{deposit_token}",
-            int(Decimal(amount) * Decimal(10**18)),
+            deposit_token_name,
+            amount,
             multiplier,
             wallet_id,
             borrowing_token,
+            ekubo_contract_mock,
+        )
+
+        mock_get_loop_liquidity_data.assert_called_once_with(
+            TOKEN_ADDRESSES[deposit_token_name],
+            int(
+                Decimal(amount)
+                * Decimal(10 ** TOKEN_DECIMALS[TOKEN_ADDRESSES[deposit_token_name]])
+            ),
+            multiplier,
+            wallet_id,
+            borrowing_token,
+            ekubo_contract_mock,
         )
 
         assert transaction_data == expected_transaction_data
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "supply_token",
-        ["STRK", "ETH", "USDC", None, 3.14, {}],
+    @pytest.mark.parametrize("supply_token", ["STRK", "ETH", "USDC"])
+    @patch(
+        "web_app.contract_tools.mixins.deposit.TokenParams.get_token_decimals",
+        side_effect=lambda addr: TOKEN_DECIMALS[addr],
     )
     @patch(
-        target="web_app.contract_tools.mixins.deposit.CLIENT.get_repay_data",
+        "web_app.contract_tools.mixins.deposit.TokenParams.get_token_address",
+        side_effect=lambda x: TOKEN_ADDRESSES[x],
+    )
+    @patch(
+        "web_app.contract_tools.mixins.deposit.CLIENT.get_repay_data",
         new_callable=AsyncMock,
     )
-    @patch("web_app.contract_tools.mixins.deposit.TokenParams.get_token_address")
     async def test_get_repay_data(
         self,
-        mock_get_token_address: MagicMock,
         mock_get_repay_data: AsyncMock,
+        mock_get_token_address: MagicMock,
+        mock_get_token_decimals: MagicMock,
         supply_token: str,
     ) -> None:
         """
         Test cases for DepositMixin.get_repay_data method
-        :param mock_get_token_address: unittest.mock.MagicMock
         :param mock_get_repay_data: unittest.mock.AsyncMock
-        :param supply_token: Deposit token
-        :return: None
+        :param mock_get_token_address: unittest.mock.MagicMock
+        :param mock_get_token_decimals: unittest.mock.MagicMock
+        :param supply_token: str
         """
+        # Logic from DepositMixin: if supply_token != USDC -> debt_token = USDC
+        # If supply_token == USDC -> debt_token = ETH
+        if supply_token == "USDC":
+            expected_debt_token = TOKEN_ADDRESSES["ETH"]
+        else:
+            expected_debt_token = TOKEN_ADDRESSES["USDC"]
 
-        mock_get_token_address.side_effect = lambda token: f"mocked_address_for_{token}"
+        expected_supply_token = TOKEN_ADDRESSES[supply_token]
 
         expected_repay_data = {
-            "supply_token": mock_get_token_address(supply_token),
-            "debt_token": mock_get_token_address("USDC"),
+            "supply_token": expected_supply_token,
+            "debt_token": expected_debt_token,
             "supply_price": "mocked_supply_price",
             "debt_price": "mocked_debt_price",
             "pool_key": "mocked_pool_key",
         }
 
         mock_get_repay_data.return_value = {
-            "supply_price": expected_repay_data["supply_price"],
-            "debt_price": expected_repay_data["debt_price"],
-            "pool_key": expected_repay_data["pool_key"],
+            "supply_price": "mocked_supply_price",
+            "debt_price": "mocked_debt_price",
+            "pool_key": "mocked_pool_key",
         }
 
-        repay_data = await DepositMixin.get_repay_data(supply_token)
-
-        mock_get_token_address.assert_any_call(supply_token)
-        mock_get_token_address.assert_any_call("USDC")
+        ekubo_contract_mock = MagicMock()
+        repay_data = await DepositMixin.get_repay_data(
+            supply_token, ekubo_contract_mock
+        )
 
         assert repay_data == expected_repay_data

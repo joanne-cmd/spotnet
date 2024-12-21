@@ -1,0 +1,135 @@
+.congratulationsModal {
+  padding: 150px 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+}
+
+.congratulationsModal h1 {
+  font-weight: 600;
+  font-size: 48px;
+  line-height: 62px;
+  color: #eeeeee;
+}
+
+.congratulationsModal p {
+  font-size: 20px;
+  line-height: 28px;
+  margin-top: 12px;
+  color: white;
+}
+
+.congratulationsModal img {
+  margin: 70px 0;
+}
+
+.gradient-button {
+  border-radius: 8px;
+  border: none;
+  height: 52px;
+  width: 500px;
+  font-size: 20px;
+  font-family: var(--text-font);
+  color: var(--black);
+  font-weight: 700;
+  background: var(--button-gradient);
+  line-height: 100%;
+}
+
+.gradient-button:hover {
+  background: var(--button-gradient-hover);
+}
+
+.gradient-button:active {
+  background: var(--button-gradient-active);
+}
+
+.gradient-button:disabled {
+  background: var(--button-gradient);
+  color: var(--primary);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1440px) {
+  .congratulationsModal h1 {
+    font-size: 35px;
+    line-height: 52px;
+  }
+
+  .congratulationsModal img {
+    width: 180px;
+  }
+
+  .gradient-button {
+    height: 46px;
+    width: 400px;
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 768px) {
+  .congratulationsModal h1 {
+    font-size: 30px;
+  }
+
+  .congratulationsModal img {
+    width: 160px;
+  }
+
+  .gradient-button {
+    height: 46px;
+    width: 380px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .congratulationsModal {
+    padding: 120px 0;
+  }
+
+  .congratulationsModal h1 {
+    font-size: 26px;
+  }
+
+  .congratulationsModal img {
+    width: 130px;
+  }
+
+  .gradient-button {
+    height: 42px;
+    width: 340px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 375px) {
+  .gradient-button {
+    height: 38px;
+    width: 280px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 320px) {
+  .congratulationsModal h1 {
+    font-size: 22px;
+  }
+
+  .congratulationsModal img {
+    width: 110px;
+  }
+
+  .gradient-button {
+    height: 38px;
+    width: 260px;
+    font-size: 13px;
+  }
+}

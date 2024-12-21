@@ -2,9 +2,11 @@
 This module handles the blockchain calls.
 """
 
+import asyncio
 import logging
 import os
 import time
+from decimal import Decimal
 from math import floor
 from typing import Any, List
 
@@ -12,10 +14,9 @@ import starknet_py.cairo.felt
 import starknet_py.hash.selector
 import starknet_py.net.client_models
 import starknet_py.net.networks
+from .constants import MULTIPLIER_POWER, ZKLEND_MARKET_ADDRESS, TokenParams
 from starknet_py.contract import Contract
 from starknet_py.net.full_node_client import FullNodeClient
-
-from .constants import EKUBO_MAINNET_ADDRESS, TokenParams
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class StarknetClient:
         """
         Initializes the Starknet client with a given node URL.
         """
-        node_url = os.getenv("STARKNET_NODE_URL")
+        node_url = os.getenv("STARKNET_NODE_URL") or "http://51.195.57.196:6060/v0_7"
         if not node_url:
             raise ValueError("STARKNET_NODE_URL environment variable is not set")
 
@@ -100,6 +101,9 @@ class StarknetClient:
             }
 
         """
+        token0, token1 = sorted(
+            map(lambda x: StarknetClient._convert_address(x), (token0, token1))
+        )
         return {
             "token0": token0,
             "token1": token1,
@@ -108,14 +112,19 @@ class StarknetClient:
             "extension": extension,
         }
 
-    async def _get_pool_price(self, pool_key, is_token1: bool):
-        """Calculate Ekubo pool price"""
+    @staticmethod
+    async def _get_pool_price(
+        pool_key, is_token1: bool, ekubo_contract: "Contract"
+    ) -> Decimal:
+        """
+        Calculate Ekubo pool price.
 
-        ekubo_contract = await Contract.from_address(
-            EKUBO_MAINNET_ADDRESS, provider=self.client
-        )
+        :param pool_key: The pool key dictionary.
+        :param is_token1: Boolean indicating if the token is token1.
+        :param ekubo_contract: The Ekubo contract instance.
+        :return: The calculated pool price.
+        """
         price_data = await ekubo_contract.functions["get_pool_price"].call(pool_key)
-
         underlying_token_0_address = TokenParams.add_underlying_address(
             str(hex(pool_key["token0"]))
         )
@@ -125,8 +134,7 @@ class StarknetClient:
 
         token_0_decimals = TokenParams.get_token_decimals(underlying_token_0_address)
         token_1_decimals = TokenParams.get_token_decimals(underlying_token_1_address)
-
-        price = ((price_data[0]["sqrt_ratio"] / 2**128) ** 2) * (
+        price = Decimal(((price_data[0]["sqrt_ratio"] / 2**128) ** 2)) * (
             10 ** abs(token_0_decimals - token_1_decimals)
         )
         return (
@@ -135,8 +143,60 @@ class StarknetClient:
             else price * 10**token_1_decimals
         )
 
+    async def _get_zklend_reserve(self, token_address: str) -> list[int]:
+        """
+        Get ZkLend reserve data for a specific token.
+
+        :param token_address: The address of the token.
+        :return: A list of reserve data.
+        """
+        return await self._func_call(
+            self._convert_address(ZKLEND_MARKET_ADDRESS),
+            "get_reserve_data",
+            [self._convert_address(token_address)],
+        )
+
+    async def get_available_zklend_reserves(self) -> dict[str, list[int]]:
+        """
+        Get available ZkLend reserves for all tokens.
+
+        :return: A dictionary with token names as keys and reserve data as values.
+        """
+        tasks = [
+            self._get_zklend_reserve(token.address) for token in TokenParams.tokens()
+        ]
+        return {
+            token.name: reserve
+            for token, reserve in zip(
+                TokenParams.tokens(), await asyncio.gather(*tasks)
+            )
+        }
+
+    async def get_z_addresses(self) -> dict[str, tuple[int, int]]:
+        """
+        Get ZkLend addresses.
+
+        :return: A dictionary with token names as keys and tuples of addresses as values.
+        """
+        reserves = await self.get_available_zklend_reserves()
+        return {token: (reserve[1], reserve[2]) for token, reserve in reserves.items()}
+
+    async def get_zklend_debt(self, user: str, token: str) -> list[int]:
+        """
+        Get ZkLend debt for a specific user and token.
+
+        :param user: The address of the user.
+        :param token: The address of the token.
+        :return: A list of debt data.
+        """
+        return await self._func_call(
+            self._convert_address(ZKLEND_MARKET_ADDRESS),
+            "get_user_debt_for_token",
+            [self._convert_address(user), self._convert_address(token)],
+        )
+
     async def get_balance(
-        self, token_addr: str, holder_addr: str, decimals: int = None
+        self, token_addr: str | int, holder_addr: str, decimals: int = None
     ) -> int:
         """
         Fetches the balance of a holder for a specific token.
@@ -146,7 +206,11 @@ class StarknetClient:
         :param decimals: The number of decimal places to round the balance to. Defaults to None.
         :return: The token balance of the holder as an integer.
         """
-        token_address_int = self._convert_address(token_addr)
+        token_address_int = (
+            self._convert_address(token_addr)
+            if isinstance(token_addr, str)
+            else token_addr
+        )
         holder_address_int = self._convert_address(holder_addr)
         try:
             res = await self._func_call(
@@ -166,13 +230,21 @@ class StarknetClient:
         self,
         deposit_token: str,
         amount: int,
-        multiplier: int,
+        multiplier: Decimal,
         wallet_id: str,
         borrowing_token: str,
+        ekubo_contract: "Contract",
     ) -> dict:
         """
         Get data for Spotnet liquidity looping call.
 
+        :param deposit_token: The address of the deposit token.
+        :param amount: The amount to deposit.
+        :param multiplier: The multiplier for the deposit.
+        :param wallet_id: The wallet ID.
+        :param borrowing_token: The address of the borrowing token.
+        :param ekubo_contract: The Ekubo contract instance.
+        :return: A dictionary with liquidity data.
         """
         # Get pool key
         pool_key = self._build_ekubo_pool_key(deposit_token, borrowing_token)
@@ -180,28 +252,42 @@ class StarknetClient:
         deposit_token, borrowing_token = self._convert_address(
             deposit_token
         ), self._convert_address(borrowing_token)
-        # Set pool key
-        pool_key["token0"], pool_key["token1"] = deposit_token, borrowing_token
-        # Set wallet id
-        wallet_id = self._convert_address(wallet_id)
+
         deposit_data = {
             "token": deposit_token,
             "amount": amount,
-            "multiplier": multiplier,
+            "multiplier": int(multiplier * 10),
+            # Moves for one decimal place, from 2.5 to 25
+            "borrow_portion_percent": MULTIPLIER_POWER,
         }
 
         pool_price = floor(
-            await self._get_pool_price(pool_key, deposit_token == pool_key["token1"])
+            await self._get_pool_price(
+                pool_key, deposit_token == pool_key["token1"], ekubo_contract
+            )
         )
         return {
-            "caller": wallet_id,
             "pool_price": pool_price,
             "pool_key": pool_key,
             "deposit_data": deposit_data,
+            "ekubo_limits": {
+                "lower": "18446748437148339061",
+                "upper": "6277100250585753475930931601400621808602321654880405518632",
+            },
+            "caller": wallet_id,
         }
 
-    async def get_repay_data(self, deposit_token: str, borrowing_token: str) -> dict:
-        """Get data for Spotnet position closing."""
+    async def get_repay_data(
+        self, deposit_token: str, borrowing_token: str, ekubo_contract: "Contract"
+    ) -> dict:
+        """
+        Get data for Spotnet position closing.
+
+        :param deposit_token: The address of the deposit token.
+        :param borrowing_token: The address of the borrowing token.
+        :param ekubo_contract: The Ekubo contract instance.
+        :return: A dictionary with repay data.
+        """
         pool_key = self._build_ekubo_pool_key(deposit_token, borrowing_token)
         decimals_sum = TokenParams.get_token_decimals(
             deposit_token
@@ -210,12 +296,13 @@ class StarknetClient:
             deposit_token
         ), self._convert_address(borrowing_token)
 
-        pool_key["token0"], pool_key["token1"] = deposit_token, borrowing_token
         is_token1 = deposit_token == pool_key["token1"]
-        supply_price = floor(await self._get_pool_price(pool_key, is_token1))
+        supply_price = floor(
+            await self._get_pool_price(pool_key, is_token1, ekubo_contract)
+        )
 
         try:
-            debt_price = floor((1 / supply_price) * 10**decimals_sum)
+            debt_price = floor(Decimal((1 / supply_price)) * 10**decimals_sum)
         except ZeroDivisionError:
             logger.error(
                 f"Error while getting repay data: {deposit_token=}, {borrowing_token=}"
@@ -229,17 +316,107 @@ class StarknetClient:
             "supply_price": supply_price,
             "debt_price": debt_price,
             "pool_key": pool_key,
+            "ekubo_limits": {
+                "lower": "18446748437148339061",
+                "upper": "6277100250585753475930931601400621808602321654880405518632",
+            },
+            "borrow_portion_percent": 93,
         }
 
-    async def claim_airdrop(self, contract_address: str, proofs: list[str]) -> None:
+    async def is_opened_position(self, contract_address: str) -> bool:
         """
-        Claims an airdrop on the Starknet blockchain.
-        :param contract_address: airdrop contract address
-        :param proofs: list of proof strings
-        :return: True if the claim was successful, False otherwise
+        Checks if a position is opened on the Starknet blockchain.
+
+        :param contract_address: The contract address.
+        :return: A boolean indicating if the position is opened.
         """
         return await self._func_call(
             addr=self._convert_address(contract_address),
-            selector="claim",
-            calldata=proofs,
+            selector="is_position_open",
+            calldata=[],
         )
+
+    async def add_extra_deposit(
+        self, contract_address: str, token_address: str, amount: str
+    ) -> Any:
+        """
+        Adds extra deposit to position.
+
+        :param contract_address: The contract address.
+        :param token_address: The token address.
+        :param amount: The amount to deposit.
+        """
+
+        return await self._func_call(
+            addr=self._convert_address(contract_address),
+            selector="extra_deposit",
+            calldata=[self._convert_address(token_address), amount],
+        )
+
+    async def withdraw_all(self, contract_address: str) -> dict[str, str]:
+        """
+        Withdraws all supported tokens from the contract by calling withdraw with amount=0.
+
+        :param contract_address: The contract address to withdraw from
+        :return: A dictionary summarizing the results for each token.
+        """
+        contract_addr_int = self._convert_address(contract_address)
+        results = {}
+
+        for token in TokenParams.tokens():
+            token_symbol = token.name
+
+            try:
+                token_addr_int = self._convert_address(token.address)
+
+            except ValueError as e:
+                logger.error(f"Invalid address format for {token_symbol}: {str(e)}")
+                results[token_symbol] = f"Failed: Invalid address format"
+                continue
+
+            try:
+                logger.info(
+                    f"Withdrawing {token_symbol} from contract {contract_address}"
+                )
+                await self._func_call(
+                    addr=contract_addr_int,
+                    selector="withdraw",
+                    calldata=[token_addr_int, 0],
+                )
+                results[token_symbol] = "Success"
+            except Exception as e:
+                logger.error(f"Error withdrawing {token_symbol}: {e}")
+                results[token_symbol] = f"Failed: {e}"
+
+        return results
+
+    async def fetch_portfolio(self, contract_address: str) -> dict:
+        """
+        Fetches the portfolio of the contract
+
+        :param contract_address: the contract address to fetch the portfolio from.
+        :return: A dictionary containing dictionaries of available tokens in the contract address,
+                and the balance
+        """
+        results = {}
+        z_addresses = await self.get_z_addresses()
+
+        for key, value in z_addresses.items():
+            decimals, z_address = value
+            balance: int = await self.get_balance(z_address, contract_address)
+
+            key = f"z{key}"
+            results[key] = {"balance": balance, "decimals": decimals}
+
+        return results
+
+
+CLIENT = StarknetClient()
+
+if __name__ == "__main__":
+    call = CLIENT
+    spotnet_address = (
+        "0x05685d6b0b493c7c939d65c175305b893870cacad780842c79a611ad9122815f"
+    )
+    res = asyncio.run(call.fetch_portfolio(spotnet_address))
+    print(res)

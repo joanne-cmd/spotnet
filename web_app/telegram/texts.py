@@ -16,3 +16,9 @@ HEALTH_RATIO_WARNING_MESSAGE = (
     "This is getting low - please add more deposit to avoid liquidation.\n\n"
     "Visit spotnet.xyz to manage your position."
 )
+
+NOTIFICATION_ALLOWED_MESSAGE = (
+    "You have successfully allowed notifications! "
+    "You will now receive updates and alerts regarding your account. "
+    "Thank you for staying connected with us! 🎉"
+)

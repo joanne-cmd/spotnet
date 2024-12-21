@@ -101,16 +101,17 @@ async function getTokenBalance(starknet, walletAddress, tokenAddress) {
       entrypoint: 'balanceOf',
       calldata: [walletAddress],
     });
-
+    const tokenDecimals = (tokenAddress === USDC_ADDRESS) ? 6 : 18;
     const balance = BigInt(response.result[0]).toString();
-    const readableBalance = (Number(balance) / 1e18).toFixed(4);
-
+    const readableBalance = (Number(balance) / (10 ** tokenDecimals)).toFixed(4);
+    console.log(`Balance for token ${tokenAddress}:`, readableBalance);
     return readableBalance;
   } catch (error) {
     console.error(`Error fetching balance for token ${tokenAddress}:`, error);
     return '0';
   }
 }
+
 
 export const getBalances = async (walletId, setBalances) => {
   if (!walletId) return;

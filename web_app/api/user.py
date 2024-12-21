@@ -1,3 +1,4 @@
+
 """
 This module handles user-related API endpoints.
 """
@@ -11,15 +12,17 @@ from web_app.api.serializers.user import (
     CheckUserResponse,
     GetStatsResponse,
     GetUserContractAddressResponse,
-    SubscribeToNotificationResponse,
+    SubscribeToNotificationRequest,
     UpdateUserContractResponse,
+    UserHistoryResponse,
 )
-from web_app.contract_tools.mixins.dashboard import DashboardMixin
+from web_app.contract_tools.mixins import PositionMixin, DashboardMixin
 from web_app.db.crud import (
     PositionDBConnector,
     TelegramUserDBConnector,
     UserDBConnector,
 )
+from web_app.contract_tools.blockchain_call import CLIENT
 
 logger = logging.getLogger(__name__)
 router = APIRouter()  # Initialize the router
@@ -44,7 +47,11 @@ async def has_user_opened_position(wallet_id: str) -> dict:
     """
     try:
         has_position = position_db.has_opened_position(wallet_id)
-        return {"has_opened_position": has_position}
+        contract_address = user_db.get_contract_address_by_wallet_id(wallet_id)
+        if contract_address is None:
+            return {"has_opened_position": False}
+        is_position_opened = await PositionMixin.is_opened_position(contract_address)
+        return {"has_opened_position": has_position or is_position_opened}
     except ValueError as e:
         raise HTTPException(
             status_code=404, detail=f"Invalid wallet ID format: {str(e)}"
@@ -141,7 +148,7 @@ async def update_user_contract(
     response_description="Returns success status of notification subscription",
 )
 async def subscribe_to_notification(
-    data: SubscribeToNotificationResponse,
+    data: SubscribeToNotificationRequest,
 ):
     """
     This endpoint subscribes a user to notifications by linking their telegram ID to their wallet.
@@ -154,12 +161,22 @@ async def subscribe_to_notification(
     Success status of the subscription.
     """
     user = user_db.get_user_by_wallet_id(data.wallet_id)
+    # Check if the user exists; if not, raise a 404 error
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    is_allowed_notification = telegram_db.allow_notification(data.telegram_id)
 
-    if is_allowed_notification:
+    telegram_id = data.telegram_id
+    # Is not provided, attempt to retrieve it from the database
+    if not telegram_id:
+        tg_user = telegram_db.get_telegram_user_by_wallet_id(data.wallet_id)
+        if tg_user:
+            telegram_id = tg_user.telegram_id
+    # Is found, set the notification preference for the user
+    if telegram_id:
+        telegram_db.set_allow_notification(telegram_id, data.wallet_id)
         return {"detail": "User subscribed to notifications successfully"}
+    
+    # If no Telegram ID is available, raise
     raise HTTPException(
         status_code=400, detail="Failed to subscribe user to notifications"
     )
@@ -243,16 +260,27 @@ async def get_stats() -> GetStatsResponse:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@router.post("/allow-notification/{telegram_id}")
-async def allow_notification(
-    telegram_id: int,
-    telegram_db: TelegramUserDBConnector = Depends(lambda: TelegramUserDBConnector()),
-):
-    """Enable notifications for a specific telegram user"""
-    try:
-        telegram_db.allow_notification(telegram_id=telegram_id)
-        return {"message": "Notifications enabled successfully"}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
+@router.post(
+    "/api/withdraw-all",
+    tags=["User Operations"],
+    summary="Withdraw all tokens from user's contract",
+    response_description="Status of withdrawal operations",
+)
+async def withdraw_all(wallet_id: str) -> dict:
+    """
+    Withdraws all supported tokens from the user's contract.
+
+    :param wallet_id: The wallet ID of the user.
+    :return: detail: "Successfully initiated withdrawals for all tokens"
+    """
+    # Get user's contract address
+    contract_address = user_db.get_contract_address_by_wallet_id(wallet_id)
+    if not contract_address:
+       raise HTTPException(status_code=404, detail="Contract not found")
+
+    # Perform withdrawals
+    results = await CLIENT.withdraw_all(contract_address)
+    return {
+           "detail": "Successfully initiated withdrawals for all tokens",
+           "results": results
+    }

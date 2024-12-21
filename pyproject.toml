@@ -12,13 +12,14 @@ fastapi = "0.115.0"
 psycopg2-binary = "2.9.9"
 python-dotenv = "1.0.1"
 uvicorn = "0.30.6"
-starknet-py = "0.24.2"
+starknet-py = "0.23.0"
 jinja2 = "3.1.4"
 python-multipart = "0.0.9"
 itsdangerous = "2.2.0"
 alembic = "1.13.3"
 sqlalchemy = "2.0.35"
 pytest = "8.3.3"
+pytest-cov = "6.0.0"
 pytest-asyncio = "0.24.0"
 pytest-env = "1.1.5"
 pytest-mock = "3.14.0"
@@ -32,6 +33,7 @@ psycopg2 = "^2.9.10"
 faker = "^30.8.1"
 notebook = "^7.2.2"
 sentry-sdk = {extras = ["fastapi"], version = "^2.18.0"}
+pragma-sdk = "^2.4.6"
 
 [tool.poetry.group.dev.dependencies]
 black = "24.8.0"
@@ -41,3 +43,7 @@ isort = "5.13.2"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"

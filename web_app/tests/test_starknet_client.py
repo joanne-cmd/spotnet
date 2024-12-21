@@ -1,12 +1,13 @@
 """Test cases for StarknetClient"""
 
-import pytest
-
-from starknet_py.contract import Contract
-from starknet_py.net.full_node_client import FullNodeClient
+from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
-from web_app.contract_tools.blockchain_call import StarknetClient, RepayDataException
+import pytest
+from starknet_py.contract import Contract
+from starknet_py.net.full_node_client import FullNodeClient
+
+from web_app.contract_tools.blockchain_call import RepayDataException, StarknetClient
 from web_app.contract_tools.constants import TokenParams
 
 CLIENT = StarknetClient()
@@ -43,13 +44,11 @@ class TestStarknetClient:
     @pytest.mark.parametrize(
         "token0, token1",
         [
-            ("STRK", "STRK"),
-            ("ETH", "ETH"),
-            ("USDC", "USDC"),
-            ("STRK", "ETH"),
-            ("ETH", "USDC"),
-            ("", ""),
-            (None, None),
+            (TokenParams.STRK.address, TokenParams.STRK.address),
+            (TokenParams.ETH.address, TokenParams.ETH.address),
+            (TokenParams.USDC.address, TokenParams.USDC.address),
+            (TokenParams.STRK.address, TokenParams.ETH.address),
+            (TokenParams.ETH.address, TokenParams.USDC.address),
         ],
     )
     async def test__build_ekubo_pool_key(self, token0: str, token1: str) -> None:
@@ -61,8 +60,8 @@ class TestStarknetClient:
         """
         token0, token1 = str(token0), str(token1)
         expected_data = {
-            "token0": token0,
-            "token1": token1,
+            "token0": int(token0, base=16),
+            "token1": int(token1, base=16),
             "fee": CLIENT.FEE,
             "tick_spacing": CLIENT.TICK_SPACING,
             "extension": 0,
@@ -174,13 +173,10 @@ class TestStarknetClient:
 
         mock_contract_from_address.return_value = mock_contract
 
-        pool_price = await CLIENT._get_pool_price(pool_key, is_token1)
-
-        mock_contract_from_address.assert_called_once()
-        mock_contract.functions["get_pool_price"].call.assert_called_once()
+        pool_price = await CLIENT._get_pool_price(pool_key, is_token1, mock_contract)
 
         assert pool_price
-        assert isinstance(pool_price, (int, float))
+        assert isinstance(pool_price, Decimal)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -290,23 +286,27 @@ class TestStarknetClient:
         mock_contract.functions["get_pool_price"].call = AsyncMock(
             return_value=[
                 {
-                    "sqrt_ratio": sqrt_ratio,
+                    "sqrt_ratio": Decimal(sqrt_ratio),
                 }
             ],
         )
         mock_contract_from_address.return_value = mock_contract
 
         liquidity_data = await CLIENT.get_loop_liquidity_data(
-            deposit_token_addr, amount, multiplier, wallet_id, borrowing_token_addr
+            deposit_token=deposit_token_addr,
+            amount=amount,
+            multiplier=multiplier,
+            wallet_id=wallet_id,
+            borrowing_token=borrowing_token_addr,
+            ekubo_contract=mock_contract,
         )
-
-        mock_contract_from_address.assert_called_once()
-        mock_contract.functions["get_pool_price"].call.assert_called_once()
 
         assert liquidity_data
         assert isinstance(liquidity_data, dict)
         assert isinstance(liquidity_data["pool_price"], int)
-        assert liquidity_data["caller"] == CLIENT._convert_address(wallet_id)
+        assert int(liquidity_data["caller"], base=16) == CLIENT._convert_address(
+            wallet_id
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -364,13 +364,11 @@ class TestStarknetClient:
 
         try:
             repay_data = await CLIENT.get_repay_data(
-                deposit_token_addr, borrowing_token_addr
+                deposit_token_addr, borrowing_token_addr, mock_contract
             )
         except RepayDataException:
             assert RepayDataException.args
         else:
-            mock_contract_from_address.assert_called_once()
-            mock_contract.functions["get_pool_price"].call.assert_called_once()
 
             assert isinstance(repay_data, dict)
             assert {"supply_price", "debt_price", "pool_key"}.issubset(

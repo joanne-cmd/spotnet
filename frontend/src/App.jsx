@@ -1,103 +1,125 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import './globals.css';
-import Header from './components/header/Header';
-import Dashboard from 'pages/spotnet/dashboard/Dashboard';
-import Footer from './components/Footer/Footer';
-import SpotnetApp from 'pages/spotnet/spotnet_app/SpotnetApp';
-import Login from 'pages/Login';
-import Form from 'pages/forms/Form';
-import { connectWallet, logout, checkForCRMToken } from 'services/wallet';
-import { saveTelegramUser, getTelegramUserWalletId } from 'services/telegram';
+import Header from './components/layout/header/Header';
+import Dashboard from './pages/dashboard/Dashboard';
+import Footer from './components/layout/footer/Footer';
+import SpotnetApp from './pages/spotnet-app/SpotnetApp';
+import Form from './pages/form/Form';
+import { createPortal } from 'react-dom';
+import { logout } from './services/wallet';
+import { getTelegramUserWalletId } from './services/telegram';
+import Documentation from './pages/documentation/Documentation';
+import Withdraw from './pages/withdraw/Withdraw';
+import { useWalletStore } from './stores/useWalletStore';
+import { Notifier, notify } from './components/layout/notifier/Notifier';
+import { useConnectWallet } from './hooks/useConnectWallet';
+import OverviewPage from './pages/overview/Overview';
+import { ActionModal } from './components/ui/action-modal';
+import Stake from './pages/stake/Stake';
+import { TELEGRAM_BOT_LINK } from './utils/constants';
+import { useCheckMobile } from './hooks/useCheckMobile';
+import PositionHistory from './pages/position-history/PositionHistory';
+import WithdrawAll from 'pages/spotnet/dashboard/withdraw-all/WithdrawAll';
 
 function App() {
-  const [walletId, setWalletId] = useState(localStorage.getItem('wallet_id'));
-  const [tgUser, setTgUser] = useState(JSON.parse(localStorage.getItem('tg_user')));
-  const [error, setError] = useState(null);
+  const { setWalletId, removeWalletId } = useWalletStore();
+  const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (tgUser) {
-      saveTelegramUser(tgUser, walletId)
-        .then(() => console.log('Telegram user saved successfully'))
-        .catch((error) => console.error('Error saving Telegram user:', error));
-    }
-    if (!walletId) {
-      localStorage.removeItem('wallet_id');
-      return;
-    }
-    localStorage.setItem('wallet_id', walletId);
-  }, [walletId, tgUser]);
-
-  useEffect(() => {
-    if (!tgUser) {
-      localStorage.removeItem('tg_user');
-      return;
-    }
-    if (!walletId) {
-      getTelegramUserWalletId(tgUser)
-        .then((fetchedWalletId) => {
-          if (fetchedWalletId) {
-            setWalletId(fetchedWalletId);
-          }
-        })
-        .catch((error) => console.error('Error fetching wallet ID:', error));
-      localStorage.setItem('tg_user', JSON.stringify(tgUser));
-    }
-  }, [tgUser, walletId]);
-
-  const handleConnectWallet = async () => {
-    try {
-      setError(null);
-      const walletAddress = await connectWallet();
+  const [isMobileRestrictionModalOpen, setisMobileRestrictionModalOpen] = useState(true);
+  const isMobile = useCheckMobile();
   
-      if (!walletAddress) {
-        throw new Error('Failed to connect wallet');
-      }
-  
-      const hasCRMToken = await checkForCRMToken(walletAddress);
-      if (!hasCRMToken) {
-        return; // Stop further actions if wallet doesn't have CRM token
-      }
-  
-      setWalletId(walletAddress);
-    } catch (err) {
-      console.error('Failed to connect wallet:', err);
-      setError(err.message);
-    }
+  const disableDesktopOnMobile = process.env.REACT_APP_DISABLE_DESKTOP_ON_MOBILE !== 'false';
+
+  const connectWalletMutation = useConnectWallet(setWalletId);
+
+  const handleConnectWallet = () => {
+    connectWalletMutation.mutate();
   };
 
   const handleLogout = () => {
     logout();
-    setWalletId(null);
+    removeWalletId();
+    closeModal();
     navigate('/');
   };
 
+  const handleLogoutModal = () => {
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+  };
+
+
+  const handleisMobileRestrictionModalClose = () => {
+    setisMobileRestrictionModalOpen(false);
+  };
+
+  const openTelegramBot = () => {
+    window.open(TELEGRAM_BOT_LINK, '_blank');
+  };
+
+  useEffect(() => {
+    if (window.Telegram?.WebApp?.initData) {
+      getTelegramUserWalletId(window.Telegram.WebApp.initDataUnsafe.user.id)
+        .then((linked_wallet_id) => {
+          setWalletId(linked_wallet_id);
+          window.Telegram.WebApp.ready();
+        })
+        .catch((error) => {
+          console.error('Error getting Telegram user wallet ID:', error);
+          notify('Error loading wallet', "error");
+          window.Telegram.WebApp.ready();
+        });
+    }
+  }, [window.Telegram?.WebApp?.initDataUnsafe]);
+
+
   return (
     <div className="App">
-      <Header
-        tgUser={tgUser}
-        setTgUser={setTgUser}
-        walletId={walletId}
-        onConnectWallet={handleConnectWallet}
-        onLogout={handleLogout}
-      />
+      <Notifier />
+      {showModal &&
+        createPortal(
+          <ActionModal
+            isOpen={showModal}
+            title="Logout"
+            subTitle={'Do you want to disconnect your wallet and logout of this account?'}
+            cancelLabel="Cancel"
+            submitLabel="Yes, logout"
+            submitAction={handleLogout}
+            cancelAction={closeModal}
+          />,
+          document.body
+        )}
+      <Header onConnectWallet={handleConnectWallet} onLogout={handleLogoutModal} />
       <main>
-        {error && <div className="alert alert-danger">{error}</div>}
         <Routes>
-          <Route
-            index
-            element={<SpotnetApp walletId={walletId} onConnectWallet={handleConnectWallet} onLogout={handleLogout} />}
-          />
-          <Route
-            path="/login"
-            element={walletId ? <Navigate to="/" /> : <Login onConnectWallet={handleConnectWallet} />}
-          />
-          <Route path="/dashboard" element={<Dashboard walletId={walletId} />} />
-          <Route path="/form" element={<Form walletId={walletId} setWalletId={setWalletId} />} />
+          <Route index element={<SpotnetApp onConnectWallet={handleConnectWallet} onLogout={handleLogout} />} />
+          <Route path="/dashboard" element={<Dashboard telegramId={window?.Telegram?.WebApp?.initData?.user?.id} />} />
+          <Route path="/withdraw" element={<Withdraw />} />
+          <Route path="/overview" element={<OverviewPage />} />
+          <Route path="/form" element={<Form />} />
+          <Route path="/documentation" element={<Documentation />} />
+          <Route path="/position-history" element={<PositionHistory />} />
+          <Route path="/stake" element={<Stake />} />
+          <Route path="/dashboard/withdraw-all" element={<WithdrawAll />} />
         </Routes>
       </main>
       <Footer />
+      {isMobile && disableDesktopOnMobile && (
+        <ActionModal
+          isOpen={isMobileRestrictionModalOpen}
+          title="Mobile website restriction"
+          subTitle="Please, use desktop version or telegram mini-app"
+          content={[]}
+          cancelLabel="Cancel"
+          submitLabel="Open in Telegram"
+          submitAction={openTelegramBot}
+          cancelAction={handleisMobileRestrictionModalClose}
+        />
+      )}
     </div>
   );
 }

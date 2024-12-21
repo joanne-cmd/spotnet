@@ -3,6 +3,7 @@ This module loads environment variables and retrieves configuration settings for
 
 It specifically retrieves the Telegram bot token and web app URL from environment variables.
 """
+
 from os import getenv
 
 from dotenv import load_dotenv
@@ -11,4 +12,4 @@ load_dotenv()
 
 # Retrieve the Telegram bot token from environment variables
 TELEGRAM_TOKEN = getenv("TELEGRAM_TOKEN")
-WEBAPP_URL = getenv("TELEGRAM_WEBAPP_URL", "spotnet.xyz")
+WEBAPP_URL = getenv("TELEGRAM_WEBAPP_URL", "https://spotnet.xyz")
